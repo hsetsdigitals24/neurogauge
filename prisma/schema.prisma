@@ -1,0 +1,66 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model Study {
+  id        String    @id @default(cuid())
+  name      String
+  config    Json
+  createdAt DateTime  @default(now())
+  sessions  Session[]
+}
+
+model Session {
+  id              String    @id @default(cuid())
+  participantId   String
+  study           Study?    @relation(fields: [studyId], references: [id])
+  studyId         String?
+  startedAt       DateTime
+  finishedAt      DateTime?
+  config          Json
+  consentGiven    Boolean   @default(false)
+  consentTs       DateTime?
+  demographics    Json?
+  globalTLX       Json?
+  customAnswers   Json?
+  createdAt       DateTime  @default(now())
+  blocks          Block[]
+
+  @@index([participantId])
+  @@index([studyId])
+}
+
+model Block {
+  id            String   @id @default(cuid())
+  session       Session  @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+  sessionId     String
+  blockIndex    Int
+  stimulusType  String
+  level         Int
+  perLevelTLX   Json?
+  trials        Trial[]
+
+  @@index([sessionId])
+}
+
+model Trial {
+  id             String   @id @default(cuid())
+  block          Block    @relation(fields: [blockId], references: [id], onDelete: Cascade)
+  blockId        String
+  trialIndex     Int
+  stimulus       String
+  isPriming      Boolean
+  expectedMatch  Boolean?
+  responded      Boolean
+  responseYes    Boolean?
+  rtMs           Float?
+  correct        Boolean?
+  onsetTs        Float
+
+  @@index([blockId])
+}

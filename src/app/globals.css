@@ -1,26 +1,110 @@
 @import "tailwindcss";
 
 :root {
-  --background: #ffffff;
-  --foreground: #171717;
+  --bg: #fafbff;
+  --fg: #0b1020;
+  --primary: #6366f1;
+  --primary-2: #06b6d4;
+  --accent: #f59e0b;
+  --success: #10b981;
+  --danger: #ef4444;
+  --card: #ffffff;
+  --border: #e5e7eb;
+  --muted: #6b7280;
 }
 
 @theme inline {
-  --color-background: var(--background);
-  --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
+  --color-background: var(--bg);
+  --color-foreground: var(--fg);
+  --color-primary: var(--primary);
+  --color-primary-2: var(--primary-2);
+  --color-accent: var(--accent);
+  --color-success: var(--success);
+  --color-danger: var(--danger);
+  --color-card: var(--card);
+  --color-border: var(--border);
+  --color-muted: var(--muted);
 }
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
-  }
+html, body {
+  background:
+    radial-gradient(1200px 600px at 10% -10%, #c7d2fe55, transparent 60%),
+    radial-gradient(900px 500px at 110% 10%, #a5f3fc55, transparent 60%),
+    radial-gradient(700px 500px at 50% 120%, #fde68a44, transparent 60%),
+    var(--bg);
+  color: var(--fg);
+  min-height: 100%;
+  font-family: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, Inter, sans-serif;
 }
 
-body {
-  background: var(--background);
-  color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+* { box-sizing: border-box; }
+
+.btn {
+  display: inline-flex; align-items: center; justify-content: center;
+  gap: 0.5rem; padding: 0.75rem 1.25rem; border-radius: 0.75rem;
+  font-weight: 600; transition: transform .12s ease, box-shadow .2s ease, background .2s ease;
+  box-shadow: 0 1px 2px rgba(0,0,0,.05);
+}
+.btn:active { transform: translateY(1px); }
+.btn-primary {
+  background: linear-gradient(135deg, var(--primary), var(--primary-2));
+  color: white;
+  box-shadow: 0 8px 24px -8px #6366f199;
+}
+.btn-primary:hover { filter: brightness(1.05); }
+.btn-ghost { background: white; border: 1px solid var(--border); color: var(--fg); }
+.btn-ghost:hover { background: #f9fafb; }
+.btn-danger { background: var(--danger); color: white; }
+.btn-success { background: var(--success); color: white; }
+
+.card {
+  background: rgba(255,255,255,0.85);
+  backdrop-filter: blur(8px);
+  border: 1px solid var(--border);
+  border-radius: 1.25rem;
+  box-shadow: 0 10px 40px -20px rgba(15, 23, 42, .15);
+}
+
+.input, .select, .textarea {
+  width: 100%;
+  padding: 0.65rem 0.85rem;
+  border: 1px solid var(--border);
+  border-radius: 0.65rem;
+  background: white;
+  outline: none;
+  transition: border .15s, box-shadow .15s;
+}
+.input:focus, .select:focus, .textarea:focus {
+  border-color: var(--primary);
+  box-shadow: 0 0 0 4px #6366f133;
+}
+.label { font-size: .85rem; font-weight: 600; color: #374151; margin-bottom: .25rem; display: block; }
+
+.kbd {
+  display: inline-block; padding: 2px 8px; border-radius: 6px;
+  background: #f3f4f6; border: 1px solid var(--border); font-family: ui-monospace, monospace;
+  font-size: .8rem;
+}
+
+.gradient-text {
+  background: linear-gradient(135deg, var(--primary), var(--primary-2) 60%, var(--accent));
+  -webkit-background-clip: text; background-clip: text; color: transparent;
+}
+
+.shimmer {
+  background: linear-gradient(90deg, #6366f1 0%, #06b6d4 50%, #f59e0b 100%);
+  background-size: 200% 100%;
+  animation: shimmer 4s linear infinite;
+}
+@keyframes shimmer { from { background-position: 0% 0; } to { background-position: 200% 0; } }
+
+.pulse-dot::before {
+  content: ""; display: inline-block; width: 8px; height: 8px; border-radius: 50%;
+  background: var(--success); margin-right: 8px; box-shadow: 0 0 0 0 #10b98166;
+  animation: pulse 1.6s infinite;
+}
+@keyframes pulse {
+  0% { box-shadow: 0 0 0 0 #10b98166; }
+  70% { box-shadow: 0 0 0 12px #10b98100; }
+  100% { box-shadow: 0 0 0 0 #10b98100; }
 }
