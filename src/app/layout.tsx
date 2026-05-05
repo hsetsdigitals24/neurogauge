@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 import "./globals.css";
 
 export const metadata: Metadata = {
-  title: "N-Back Lab — Cognitive Assessment Platform",
+  title: "Neurogauge N-Back Lab — Cognitive Assessment Platform",
   description:
     "Research-grade N-back testing across Letters, Shapes, and Rotated-E with NASA-TLX questionnaires and CSV export.",
 };

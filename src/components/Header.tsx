@@ -13,7 +13,7 @@ export function Header() {
       <Link href="/" className="flex items-center gap-3 group">
         <div className="w-10 h-10 rounded-xl shimmer shadow-lg" />
         <div>
-          <div className="font-bold text-lg leading-tight gradient-text">N-Back Lab</div>
+          <div className="font-bold text-lg leading-tight gradient-text">Neurogauge</div>
           <div className="text-xs text-[color:var(--muted)]">Cognitive assessment platform</div>
         </div>
       </Link>

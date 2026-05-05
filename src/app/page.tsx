@@ -24,7 +24,7 @@ export default function Home() {
             transition={{ duration: 0.6 }}
           >
             <span className="inline-flex items-center text-xs font-semibold px-3 py-1 rounded-full bg-white border border-[color:var(--border)] pulse-dot">
-              Live research platform
+             Neurogauge Research Platform
             </span>
             <h1 className="mt-5 text-5xl md:text-6xl font-extrabold leading-[1.05] tracking-tight">
               Measure working memory with{" "}
