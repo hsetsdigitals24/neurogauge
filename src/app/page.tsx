@@ -2,14 +2,15 @@
 import Link from "next/link";
 import { motion } from "framer-motion";
 import { Header } from "@/components/Header";
+import { Type, Layers, Clock, ClipboardList, Zap, Download } from "lucide-react";
 
 const features = [
-  { title: "Letters, Shapes & Rotated-E", desc: "Three stimulus modalities with a custom shape library and SVG-rendered rotations." },
-  { title: "0-back to 3-back", desc: "Calibrated difficulty progression with priming trials and configurable target rates." },
-  { title: "Auto or self-paced", desc: "Default 3 s per screen (0.5 s display + 2.5 s response). Fully adjustable." },
-  { title: "NASA-TLX questionnaires", desc: "Per-level + global mental, physical, temporal demand, performance, effort, frustration & 9-point Paas effort." },
-  { title: "Reaction-time precision", desc: "performance.now() RT capture, hits, misses, false alarms, d′, criterion." },
-  { title: "Export to CSV / SPSS", desc: "Long-format trial data and wide-format summary. Open in Excel, R, or SPSS." },
+  { title: "Letters, Shapes & Rotated-E", desc: "Three stimulus modalities with a custom shape library and SVG-rendered rotations.", icon: Type },
+  { title: "0-back to 3-back", desc: "Calibrated difficulty progression with priming trials and configurable target rates.", icon: Layers },
+  { title: "Auto or self-paced", desc: "Default 3 s per screen (0.5 s display + 2.5 s response). Fully adjustable.", icon: Clock },
+  { title: "NASA-TLX questionnaires", desc: "Per-level + global mental, physical, temporal demand, performance, effort, frustration & 9-point Paas effort.", icon: ClipboardList },
+  { title: "Reaction-time precision", desc: "performance.now() RT capture, hits, misses, false alarms, d′, criterion.", icon: Zap },
+  { title: "Export to CSV / SPSS", desc: "Long-format trial data and wide-format summary. Open in Excel, R, or SPSS.", icon: Download },
 ];
 
 export default function Home() {
@@ -42,7 +43,9 @@ export default function Home() {
         </section>
 
         <section className="mt-16 grid md:grid-cols-3 gap-5">
-          {features.map((f, i) => (
+          {features.map((f, i) => {
+            const IconComponent = f.icon;
+            return (
             <motion.div
               key={f.title}
               initial={{ opacity: 0, y: 20 }}
@@ -51,11 +54,14 @@ export default function Home() {
               transition={{ duration: 0.45, delay: i * 0.05 }}
               className="card p-6"
             >
-              <div className="w-10 h-10 rounded-lg shimmer mb-4" />
+              <div className="w-10 h-10 rounded-lg bg-gradient-to-br from-blue-500 to-purple-600 flex items-center justify-center mb-4">
+                <IconComponent className="w-6 h-6 text-white" />
+              </div>
               <h3 className="font-bold text-lg">{f.title}</h3>
               <p className="text-sm text-[color:var(--muted)] mt-1">{f.desc}</p>
             </motion.div>
-          ))}
+            );
+          })}
         </section>
 
         <section className="mt-20 card p-8 md:p-10 flex flex-col md:flex-row md:items-center justify-between gap-6">
