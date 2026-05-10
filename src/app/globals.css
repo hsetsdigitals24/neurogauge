@@ -108,3 +108,32 @@ html, body {
   70% { box-shadow: 0 0 0 12px #10b98100; }
   100% { box-shadow: 0 0 0 0 #10b98100; }
 }
+
+/* Utility: full-width buttons */
+.w-full { width: 100%; }
+
+/* Select appearance */
+.select {
+  appearance: none;
+  -webkit-appearance: none;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 12'%3E%3Cpath fill='%236b7280' d='M6 8L1 3h10z'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right 0.75rem center;
+  padding-right: 2.25rem;
+  cursor: pointer;
+}
+
+/* Textarea */
+.textarea {
+  resize: vertical;
+  min-height: 80px;
+}
+
+/* Success color for text */
+.text-success { color: var(--success); }
+
+/* Disabled state */
+.btn:disabled, input:disabled, select:disabled, textarea:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}

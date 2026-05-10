@@ -7,60 +7,152 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
-model Study {
-  id        String    @id @default(cuid())
-  name      String
-  config    Json
-  createdAt DateTime  @default(now())
-  sessions  Session[]
+model User {
+  id           String   @id @default(cuid())
+  email        String   @unique
+  name         String
+  passwordHash String
+  createdAt    DateTime @default(now())
+
+  ownedProjects      Project[]
+  collaborations     ProjectCollaborator[]
+  sentInvites        CollaboratorInvite[]  @relation("InvitedBy")
 }
 
-model Session {
-  id              String    @id @default(cuid())
-  participantId   String
-  study           Study?    @relation(fields: [studyId], references: [id])
-  studyId         String?
-  startedAt       DateTime
-  finishedAt      DateTime?
-  config          Json
-  consentGiven    Boolean   @default(false)
-  consentTs       DateTime?
-  demographics    Json?
-  globalTLX       Json?
-  customAnswers   Json?
-  createdAt       DateTime  @default(now())
-  blocks          Block[]
+model Project {
+  id          String   @id @default(cuid())
+  name        String
+  shareToken  String   @unique @default(cuid())
+  config      Json
+  ownerId     String
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
 
-  @@index([participantId])
-  @@index([studyId])
+  owner        User                  @relation(fields: [ownerId], references: [id], onDelete: Cascade)
+  collaborators ProjectCollaborator[]
+  invites       CollaboratorInvite[]
+  sessions      TestSession[]
 }
 
-model Block {
+model ProjectCollaborator {
+  id        String   @id @default(cuid())
+  projectId String
+  userId    String
+  joinedAt  DateTime @default(now())
+
+  project Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  user    User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([projectId, userId])
+}
+
+model CollaboratorInvite {
+  id          String    @id @default(cuid())
+  projectId   String
+  inviteeEmail String
+  token       String    @unique @default(cuid())
+  invitedById String
+  accepted    Boolean   @default(false)
+  createdAt   DateTime  @default(now())
+
+  project    Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  invitedBy  User    @relation("InvitedBy", fields: [invitedById], references: [id], onDelete: Cascade)
+}
+
+model TestSession {
+  id            String    @id @default(cuid())
+  projectId     String
+  participantId String
+  takerEmail    String
+  takerAge      String
+  takerHandedness String
+  takerEducation  String
+  startedAt     DateTime
+  finishedAt    DateTime?
+  consentGiven  Boolean   @default(false)
+  demographics  Json?
+  globalTLX     Json?
+  customAnswers Json?
+  createdAt     DateTime  @default(now())
+
+  project Project      @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  blocks  TestBlock[]
+
+  @@index([takerEmail])
+  @@index([projectId])
+}
+
+model TestBlock {
   id            String   @id @default(cuid())
-  session       Session  @relation(fields: [sessionId], references: [id], onDelete: Cascade)
   sessionId     String
   blockIndex    Int
   stimulusType  String
   level         Int
   perLevelTLX   Json?
-  trials        Trial[]
+
+  session TestSession @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+  trials  TestTrial[]
 
   @@index([sessionId])
 }
 
-model Trial {
-  id             String   @id @default(cuid())
-  block          Block    @relation(fields: [blockId], references: [id], onDelete: Cascade)
-  blockId        String
-  trialIndex     Int
-  stimulus       String
-  isPriming      Boolean
-  expectedMatch  Boolean?
-  responded      Boolean
-  responseYes    Boolean?
-  rtMs           Float?
-  correct        Boolean?
-  onsetTs        Float
+model TestTrial {
+  id            String  @id @default(cuid())
+  blockId       String
+  trialIndex    Int
+  stimulus      String
+  isPriming     Boolean
+  expectedMatch Boolean?
+  responded     Boolean
+  responseYes   Boolean?
+  rtMs          Float?
+  correct       Boolean?
+  onsetTs       Float
 
-  @@index([blockId])
+  block TestBlock @relation(fields: [blockId], references: [id], onDelete: Cascade)
+}
+
+// Legacy model kept for backwards compatibility
+model Session {
+  id            String    @id @default(cuid())
+  participantId String
+  startedAt     DateTime
+  finishedAt    DateTime?
+  config        Json
+  consentGiven  Boolean   @default(false)
+  consentTs     DateTime?
+  demographics  Json?
+  globalTLX     Json?
+  customAnswers Json?
+  createdAt     DateTime  @default(now())
+
+  blocks Block[]
+}
+
+model Block {
+  id           String  @id @default(cuid())
+  sessionId    String
+  blockIndex   Int
+  stimulusType String
+  level        Int
+  perLevelTLX  Json?
+
+  session Session @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+  trials  Trial[]
+}
+
+model Trial {
+  id            String  @id @default(cuid())
+  blockId       String
+  trialIndex    Int
+  stimulus      String
+  isPriming     Boolean
+  expectedMatch Boolean?
+  responded     Boolean
+  responseYes   Boolean?
+  rtMs          Float?
+  correct       Boolean?
+  onsetTs       Float
+
+  block Block @relation(fields: [blockId], references: [id], onDelete: Cascade)
 }

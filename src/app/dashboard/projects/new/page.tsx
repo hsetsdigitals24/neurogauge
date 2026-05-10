@@ -1,9 +1,10 @@
 "use client";
-import { useEffect, useState } from "react";
-import { motion } from "framer-motion";
+import { useState } from "react";
+import { useRouter } from "next/navigation";
 import Link from "next/link";
-import { Header } from "@/components/Header";
-import { DEFAULT_CONFIG, loadConfig, saveConfig } from "@/lib/store";
+import { motion } from "framer-motion";
+import { ArrowLeft } from "lucide-react";
+import { DEFAULT_CONFIG } from "@/lib/config";
 import { CustomQuestion, Level, SHAPE_LIBRARY, StimulusType, StudyConfig } from "@/lib/types";
 import { generateId } from "@/lib/id";
 
@@ -12,68 +13,90 @@ const TYPES: { v: StimulusType; label: string }[] = [
   { v: "shapes", label: "Shapes" },
   { v: "rotated-e", label: "Rotated E" },
 ];
-
 const LEVELS: Level[] = [0, 1, 2, 3];
 
-export default function AdminPage() {
+export default function NewProjectPage() {
+  const router = useRouter();
+  const [name, setName] = useState("");
   const [cfg, setCfg] = useState<StudyConfig>(DEFAULT_CONFIG);
-  const [saved, setSaved] = useState(false);
-
-  useEffect(() => { setCfg(loadConfig()); }, []);
+  const [error, setError] = useState("");
+  const [saving, setSaving] = useState(false);
 
   function update<K extends keyof StudyConfig>(k: K, v: StudyConfig[K]) {
     setCfg((c) => ({ ...c, [k]: v }));
   }
-
   function toggleArr<T>(arr: T[], v: T): T[] {
     return arr.includes(v) ? arr.filter((x) => x !== v) : [...arr, v];
   }
-
-  function save() {
-    saveConfig(cfg);
-    setSaved(true);
-    setTimeout(() => setSaved(false), 1800);
-  }
-
-  function reset() {
-    setCfg(DEFAULT_CONFIG);
-    saveConfig(DEFAULT_CONFIG);
-  }
-
   function addQuestion() {
     const id = generateId();
     const q: CustomQuestion = { id, prompt: "", type: "open", options: [] };
     update("customQuestions", [...cfg.customQuestions, q]);
   }
   function updateQ(id: string, patch: Partial<CustomQuestion>) {
-    update("customQuestions", cfg.customQuestions.map(q => q.id === id ? { ...q, ...patch } : q));
+    update("customQuestions", cfg.customQuestions.map((q) => (q.id === id ? { ...q, ...patch } : q)));
   }
   function removeQ(id: string) {
-    update("customQuestions", cfg.customQuestions.filter(q => q.id !== id));
+    update("customQuestions", cfg.customQuestions.filter((q) => q.id !== id));
+  }
+
+  async function create() {
+    if (!name.trim()) { setError("Project name is required"); return; }
+    setSaving(true); setError("");
+    try {
+      const res = await fetch("/api/projects", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ name: name.trim(), config: cfg }),
+      });
+      const data = await res.json();
+      if (!res.ok) { setError(data.error ?? "Failed to create"); return; }
+      router.push(`/dashboard/projects/${data.id}`);
+    } catch {
+      setError("Network error");
+    } finally {
+      setSaving(false);
+    }
   }
 
   return (
-    <>
-      <Header />
+    <div className="min-h-screen">
+      <header className="w-full px-6 md:px-10 py-4 flex items-center justify-between border-b border-[color:var(--border)] bg-white/70 backdrop-blur sticky top-0 z-10">
+        <Link href="/" className="flex items-center gap-3">
+          <div className="w-9 h-9 rounded-xl shimmer shadow" />
+          <span className="font-bold gradient-text">Neurogauge</span>
+        </Link>
+        <Link href="/dashboard" className="btn btn-ghost text-sm flex items-center gap-1">
+          <ArrowLeft className="w-4 h-4" /> Dashboard
+        </Link>
+      </header>
+
       <main className="px-6 md:px-10 pb-20 max-w-5xl mx-auto w-full">
-        <motion.h1
-          initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }}
-          className="text-3xl md:text-4xl font-extrabold mt-6"
-        >
-          Study <span className="gradient-text">Configuration</span>
-        </motion.h1>
-        <div className="flex items-center justify-between flex-wrap gap-3">
-          <p className="text-[color:var(--muted)] mt-1">Settings persist locally on this device.</p>
-          <Link href="/admin/sessions" className="btn btn-ghost text-sm">View saved sessions →</Link>
-        </div>
+        <motion.div initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} className="mt-8">
+          <h1 className="text-3xl md:text-4xl font-extrabold">
+            New <span className="gradient-text">project</span>
+          </h1>
+          <p className="text-[color:var(--muted)] mt-1 text-sm">
+            Configure your N-back study. You can edit everything later.
+          </p>
+        </motion.div>
 
-        <div className="grid md:grid-cols-2 gap-5 mt-8">
-          <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} className="card p-6">
+        {/* Project name */}
+        <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.05 }} className="card p-6 mt-6">
+          <label className="label text-base font-bold">Project name</label>
+          <input
+            className="input mt-1"
+            placeholder="e.g. Working Memory Study — Cohort A"
+            value={name}
+            onChange={(e) => setName(e.target.value)}
+          />
+        </motion.div>
+
+        <div className="grid md:grid-cols-2 gap-5 mt-5">
+          <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.08 }} className="card p-6">
             <h2 className="font-bold text-lg mb-4">Basics</h2>
-            <label className="label">Study name</label>
-            <input className="input" value={cfg.studyName}
-              onChange={(e) => update("studyName", e.target.value)} />
-
+            <label className="label">Study name (shown to participants)</label>
+            <input className="input" value={cfg.studyName} onChange={(e) => update("studyName", e.target.value)} />
             <div className="grid grid-cols-2 gap-3 mt-4">
               <div>
                 <label className="label">Trials per block</label>
@@ -82,60 +105,53 @@ export default function AdminPage() {
                   onChange={(e) => update("trialsPerBlock", parseInt(e.target.value || "0"))} />
               </div>
               <div>
-                <label className="label">Target rate (matches)</label>
+                <label className="label">Target match rate</label>
                 <input type="number" step={0.05} min={0.1} max={0.6} className="input"
                   value={cfg.targetRate}
                   onChange={(e) => update("targetRate", parseFloat(e.target.value))} />
               </div>
             </div>
-
             <label className="label mt-4">0-back target letter</label>
             <input className="input uppercase" maxLength={1} value={cfg.zeroBackTarget}
-              onChange={(e) => update("zeroBackTarget", e.target.value.toUpperCase().slice(0,1) || "X")} />
-
-            <label className="flex items-center gap-2 mt-4 text-sm">
+              onChange={(e) => update("zeroBackTarget", e.target.value.toUpperCase().slice(0, 1) || "X")} />
+            <label className="flex items-center gap-2 mt-4 text-sm cursor-pointer">
               <input type="checkbox" checked={cfg.collectDemographics}
                 onChange={(e) => update("collectDemographics", e.target.checked)} />
-              Collect demographics (age, gender, handedness, education)
+              Collect additional demographics
             </label>
           </motion.div>
 
-          <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.05 }} className="card p-6">
+          <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.1 }} className="card p-6">
             <h2 className="font-bold text-lg mb-4">Timing</h2>
             <div className="grid grid-cols-2 gap-2">
-              <button
-                className={`btn ${cfg.timingMode === "auto" ? "btn-primary" : "btn-ghost"}`}
+              <button className={`btn ${cfg.timingMode === "auto" ? "btn-primary" : "btn-ghost"}`}
                 onClick={() => update("timingMode", "auto")}>Auto-advance</button>
-              <button
-                className={`btn ${cfg.timingMode === "self" ? "btn-primary" : "btn-ghost"}`}
+              <button className={`btn ${cfg.timingMode === "self" ? "btn-primary" : "btn-ghost"}`}
                 onClick={() => update("timingMode", "self")}>Self-paced</button>
             </div>
-
             <div className="grid grid-cols-2 gap-3 mt-4">
               <div>
                 <label className="label">Total per screen (ms)</label>
                 <input type="number" min={500} step={100} className="input"
-                  disabled={cfg.timingMode === "self"}
-                  value={cfg.totalMs}
+                  disabled={cfg.timingMode === "self"} value={cfg.totalMs}
                   onChange={(e) => update("totalMs", parseInt(e.target.value || "0"))} />
               </div>
               <div>
                 <label className="label">Stimulus display (ms)</label>
                 <input type="number" min={100} step={50} className="input"
-                  disabled={cfg.timingMode === "self"}
-                  value={cfg.displayMs}
+                  disabled={cfg.timingMode === "self"} value={cfg.displayMs}
                   onChange={(e) => update("displayMs", parseInt(e.target.value || "0"))} />
               </div>
             </div>
             <p className="text-xs text-[color:var(--muted)] mt-2">
-              Default 3000 ms = 500 ms display + 2500 ms response. In self-paced mode, the participant clicks Yes / No / Next.
+              Default: 3000 ms total = 500 ms display + 2500 ms response.
             </p>
           </motion.div>
 
-          <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.1 }} className="card p-6">
+          <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.12 }} className="card p-6">
             <h2 className="font-bold text-lg mb-4">Stimulus types</h2>
             <div className="flex flex-wrap gap-2">
-              {TYPES.map(t => (
+              {TYPES.map((t) => (
                 <button key={t.v}
                   className={`btn ${cfg.stimulusTypes.includes(t.v) ? "btn-primary" : "btn-ghost"}`}
                   onClick={() => update("stimulusTypes", toggleArr(cfg.stimulusTypes, t.v))}>
@@ -143,10 +159,9 @@ export default function AdminPage() {
                 </button>
               ))}
             </div>
-
             <h3 className="font-semibold mt-5 mb-2 text-sm">Shape library</h3>
             <div className="flex flex-wrap gap-2">
-              {Object.keys(SHAPE_LIBRARY).map(s => (
+              {Object.keys(SHAPE_LIBRARY).map((s) => (
                 <button key={s}
                   className={`btn text-xs ${cfg.shapes.includes(s) ? "btn-primary" : "btn-ghost"}`}
                   onClick={() => update("shapes", toggleArr(cfg.shapes, s))}>
@@ -154,10 +169,9 @@ export default function AdminPage() {
                 </button>
               ))}
             </div>
-
             <h3 className="font-semibold mt-5 mb-2 text-sm">Rotated-E angles</h3>
             <div className="flex flex-wrap gap-2">
-              {[0, 90, 180, 270].map(d => (
+              {[0, 90, 180, 270].map((d) => (
                 <button key={d}
                   className={`btn text-xs ${cfg.rotations.includes(d) ? "btn-primary" : "btn-ghost"}`}
                   onClick={() => update("rotations", toggleArr(cfg.rotations, d))}>
@@ -167,10 +181,10 @@ export default function AdminPage() {
             </div>
           </motion.div>
 
-          <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.15 }} className="card p-6">
+          <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.14 }} className="card p-6">
             <h2 className="font-bold text-lg mb-4">N-back levels</h2>
             <div className="flex flex-wrap gap-2">
-              {LEVELS.map(l => (
+              {LEVELS.map((l) => (
                 <button key={l}
                   className={`btn ${cfg.levels.includes(l) ? "btn-primary" : "btn-ghost"}`}
                   onClick={() => update("levels", toggleArr(cfg.levels, l).sort() as Level[])}>
@@ -181,7 +195,8 @@ export default function AdminPage() {
           </motion.div>
         </div>
 
-        <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.2 }} className="card p-6 mt-5">
+        {/* Custom questions */}
+        <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.16 }} className="card p-6 mt-5">
           <div className="flex items-center justify-between">
             <h2 className="font-bold text-lg">Custom questions</h2>
             <button className="btn btn-ghost text-sm" onClick={addQuestion}>+ Add</button>
@@ -190,7 +205,7 @@ export default function AdminPage() {
             {cfg.customQuestions.length === 0 && (
               <p className="text-sm text-[color:var(--muted)]">No custom questions added.</p>
             )}
-            {cfg.customQuestions.map(q => (
+            {cfg.customQuestions.map((q) => (
               <div key={q.id} className="border border-[color:var(--border)] rounded-xl p-4">
                 <div className="grid md:grid-cols-3 gap-3">
                   <input className="input md:col-span-2" placeholder="Question prompt"
@@ -204,8 +219,7 @@ export default function AdminPage() {
                   </select>
                 </div>
                 {(q.type === "mcq-alpha" || q.type === "mcq-roman") && (
-                  <textarea className="textarea mt-2" rows={2}
-                    placeholder="One option per line"
+                  <textarea className="textarea mt-2" rows={2} placeholder="One option per line"
                     value={(q.options ?? []).join("\n")}
                     onChange={(e) => updateQ(q.id, { options: e.target.value.split("\n").filter(Boolean) })} />
                 )}
@@ -218,18 +232,14 @@ export default function AdminPage() {
           </div>
         </motion.div>
 
-        <div className="flex items-center gap-3 mt-8">
-          <button className="btn btn-primary" onClick={save}>Save configuration</button>
-          <button className="btn btn-ghost" onClick={reset}>Reset to defaults</button>
-          {saved && (
-            <motion.span
-              initial={{ opacity: 0, x: -8 }} animate={{ opacity: 1, x: 0 }}
-              className="text-sm font-semibold text-[color:var(--success)]">
-              ✓ Saved
-            </motion.span>
-          )}
+        {error && <p className="mt-4 text-sm text-[color:var(--danger)]">{error}</p>}
+        <div className="flex gap-3 mt-8">
+          <button className="btn btn-primary" onClick={create} disabled={saving}>
+            {saving ? "Creating…" : "Create project →"}
+          </button>
+          <Link href="/dashboard" className="btn btn-ghost">Cancel</Link>
         </div>
       </main>
-    </>
+    </div>
   );
 }
