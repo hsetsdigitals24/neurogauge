@@ -165,7 +165,7 @@ export default function PublicTestPage() {
     );
   }
 
-  if (plan.length === 0 && step.kind !== "loading" && step.kind !== "notfound") {
+  if (plan.length === 0) {
     return (
       <MinimalShell>
         <div className="card p-10 text-center max-w-md mx-auto">
