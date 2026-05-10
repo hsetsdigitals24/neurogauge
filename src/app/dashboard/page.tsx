@@ -46,24 +46,7 @@ export default function DashboardPage() {
 
   return (
     <div className="min-h-screen">
-      {/* Dashboard header */}
-      <header className="w-full px-6 md:px-10 py-4 flex items-center justify-between border-b border-[color:var(--border)] bg-white/70 backdrop-blur sticky top-0 z-10">
-        <Link href="/" className="flex items-center gap-3">
-          <div className="w-9 h-9 rounded-xl shimmer shadow" />
-          <span className="font-bold gradient-text">Neurogauge</span>
-        </Link>
-        <div className="flex items-center gap-3">
-          {user && (
-            <span className="text-sm text-[color:var(--muted)] hidden md:block">
-              {user.name} · {user.email}
-            </span>
-          )}
-          <Link href="/results" className="btn btn-ghost text-sm">Results lookup</Link>
-          <button className="btn btn-ghost text-sm flex items-center gap-1" onClick={logout}>
-            <LogOut className="w-4 h-4" /> Sign out
-          </button>
-        </div>
-      </header>
+    
 
       <main className="px-6 md:px-10 pb-20 max-w-6xl mx-auto w-full">
         <motion.div initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} className="mt-8 flex items-end justify-between flex-wrap gap-4">

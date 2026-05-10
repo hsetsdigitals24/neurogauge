@@ -54,7 +54,7 @@ function ResultsContent() {
         <p className="text-sm text-[color:var(--muted)] mb-6">
           Enter the email address you used when taking a test to see your results.
         </p>
-        <div className="flex gap-2 flex-wrap">
+        <div className="flex flex-col md:flex-row gap-4 md:gap-2 flex-wrap">
           <input
             className="input flex-1 min-w-0"
             type="email"
@@ -313,7 +313,7 @@ function capitalize(s: string) {
 export default function ResultsPage() {
   return (
     <div className="min-h-screen">
-      <header className="w-full px-6 md:px-10 py-4 flex items-center justify-between border-b border-[color:var(--border)] bg-white/70 backdrop-blur sticky top-0 z-10">
+      {/* <header className="w-full px-6 md:px-10 py-4 flex items-center justify-between border-b border-[color:var(--border)] bg-white/70 backdrop-blur sticky top-0 z-10">
         <Link href="/" className="flex items-center gap-3">
           <div className="w-9 h-9 rounded-xl shimmer shadow" />
           <div>
@@ -325,7 +325,7 @@ export default function ResultsPage() {
           <Link href="/auth/login" className="btn btn-ghost text-sm">Sign in</Link>
           <Link href="/auth/signup" className="btn btn-primary text-sm">For researchers</Link>
         </div>
-      </header>
+      </header> */}
       <main className="px-6 md:px-10 pb-16 w-full">
         <Suspense>
           <ResultsContent />

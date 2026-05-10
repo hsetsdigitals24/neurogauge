@@ -1,7 +1,6 @@
 "use client";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { AnimatePresence, motion } from "framer-motion";
-import { Header } from "@/components/Header";
 import { Stimulus } from "@/components/Stimulus";
 import { DEFAULT_CONFIG, loadConfig, saveLastSession } from "@/lib/store";
 import {
@@ -108,20 +107,15 @@ export default function TestPage() {
 
   if (!participantId) {
     return (
-      <>
-        <Header />
-        <main className="px-6 md:px-10 pb-16 max-w-4xl mx-auto w-full">
+      <main className="px-6 md:px-10 pb-16 max-w-4xl mx-auto w-full">
           <div className="card p-8 mt-6 text-sm text-[color:var(--muted)]">Preparing session…</div>
         </main>
-      </>
     );
   }
 
   if (plan.length === 0) {
     return (
-      <>
-        <Header />
-        <main className="px-6 md:px-10 pb-16 max-w-4xl mx-auto w-full">
+      <main className="px-6 md:px-10 pb-16 max-w-4xl mx-auto w-full">
           <div className="card p-8 mt-6">
             <h1 className="text-2xl font-extrabold">No blocks <span className="gradient-text">configured</span></h1>
             <p className="text-sm text-[color:var(--muted)] mt-2">
@@ -132,14 +126,11 @@ export default function TestPage() {
             </div>
           </div>
         </main>
-      </>
     );
   }
 
   return (
-    <>
-      <Header />
-      <main className="px-6 md:px-10 pb-16 max-w-4xl mx-auto w-full">
+    <main className="px-6 md:px-10 pb-16 max-w-4xl mx-auto w-full">
         <ProgressBar step={step} planLen={plan.length} />
         <AnimatePresence mode="wait">
           <motion.div
@@ -208,11 +199,10 @@ export default function TestPage() {
           </motion.div>
         </AnimatePresence>
       </main>
-    </>
-  );
-}
+    );
+  }
 
-function lastSessionLike(
+  function lastSessionLike(
   cfg: StudyConfig, pid: string, consent: ConsentRecord | null,
   demographics: Demographics, blocks: BlockResult[], gtlx: TLXResponse,
   custom: Record<string, string>,

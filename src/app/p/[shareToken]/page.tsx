@@ -240,19 +240,9 @@ export default function PublicTestPage() {
 /* ── Shell ─────────────────────────────────────────────── */
 function MinimalShell({ children, title }: { children: React.ReactNode; title?: string }) {
   return (
-    <div className="min-h-screen">
-      <header className="w-full px-6 md:px-10 py-4 flex items-center justify-between border-b border-[color:var(--border)] bg-white/70 backdrop-blur">
-        <div className="flex items-center gap-3">
-          <div className="w-9 h-9 rounded-xl shimmer shadow" />
-          <div>
-            <div className="font-bold gradient-text">Neurogauge</div>
-            {title && <div className="text-xs text-[color:var(--muted)]">{title}</div>}
-          </div>
-        </div>
-        <a href="/results" className="btn btn-ghost text-sm">Check my results</a>
-      </header>
-      <main className="px-6 md:px-10 pb-16 w-full">{children}</main>
-    </div>
+    <main className="min-h-screen px-6 md:px-10 pb-16 w-full">
+      {children}
+    </main>
   );
 }
 

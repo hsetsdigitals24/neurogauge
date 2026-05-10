@@ -153,19 +153,8 @@ export default function ProjectDetailPage() {
   ];
 
   return (
-    <div className="min-h-screen">
-      <header className="w-full px-6 md:px-10 py-4 flex items-center justify-between border-b border-[color:var(--border)] bg-white/70 backdrop-blur sticky top-0 z-10">
-        <Link href="/" className="flex items-center gap-3">
-          <div className="w-9 h-9 rounded-xl shimmer shadow" />
-          <span className="font-bold gradient-text">Neurogauge</span>
-        </Link>
-        <Link href="/dashboard" className="btn btn-ghost text-sm flex items-center gap-1">
-          <ArrowLeft className="w-4 h-4" /> Dashboard
-        </Link>
-      </header>
-
-      <main className="px-6 md:px-10 pb-20 max-w-5xl mx-auto w-full">
-        <motion.div initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} className="mt-8">
+    <main className="min-h-screen px-6 md:px-10 pb-20 max-w-5xl mx-auto w-full">
+      <motion.div initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} className="mt-8">
           <div className="flex items-start justify-between gap-4 flex-wrap">
             <div>
               <h1 className="text-3xl md:text-4xl font-extrabold">{project.name}</h1>
@@ -624,6 +613,6 @@ function SessionRow({ session, expanded, onToggle }: {
           </motion.div>
         )}
       </AnimatePresence>
-    </div>
+    </main>
   );
 }

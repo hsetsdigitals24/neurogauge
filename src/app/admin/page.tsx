@@ -2,7 +2,6 @@
 import { useEffect, useState } from "react";
 import { motion } from "framer-motion";
 import Link from "next/link";
-import { Header } from "@/components/Header";
 import { DEFAULT_CONFIG, loadConfig, saveConfig } from "@/lib/store";
 import { CustomQuestion, Level, SHAPE_LIBRARY, StimulusType, StudyConfig } from "@/lib/types";
 import { generateId } from "@/lib/id";
@@ -53,9 +52,7 @@ export default function AdminPage() {
   }
 
   return (
-    <>
-      <Header />
-      <main className="px-6 md:px-10 pb-20 max-w-5xl mx-auto w-full">
+    <main className="px-6 md:px-10 pb-20 max-w-5xl mx-auto w-full">
         <motion.h1
           initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }}
           className="text-3xl md:text-4xl font-extrabold mt-6"
@@ -230,6 +227,5 @@ export default function AdminPage() {
           )}
         </div>
       </main>
-    </>
-  );
-}
+    );
+  }

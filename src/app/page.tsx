@@ -26,30 +26,7 @@ export default function Home() {
   }, []);
 
   return (
-    <>
-      <header className="w-full px-6 md:px-10 py-4 flex items-center justify-between border-b border-[color:var(--border)] bg-white/70 backdrop-blur sticky top-0 z-10">
-        <Link href="/" className="flex items-center gap-3">
-          <div className="w-9 h-9 rounded-xl shimmer shadow" />
-          <div>
-            <div className="font-bold gradient-text">Neurogauge</div>
-            <div className="text-xs text-[color:var(--muted)] hidden sm:block">Cognitive assessment platform</div>
-          </div>
-        </Link>
-        <div className="flex items-center gap-2">
-          <Link href="/results" className="btn btn-ghost text-sm hidden sm:inline-flex">My results</Link>
-          {loggedIn === null ? null : loggedIn ? (
-            <Link href="/dashboard" className="btn btn-primary text-sm">Dashboard</Link>
-          ) : (
-            <>
-              <Link href="/auth/login" className="btn btn-ghost text-sm flex items-center gap-1">
-                <LogIn className="w-4 h-4" /> Sign in
-              </Link>
-              <Link href="/auth/signup" className="btn btn-primary text-sm">Sign up free</Link>
-            </>
-          )}
-        </div>
-      </header>
-
+    <> 
       <main className="px-6 md:px-10 pb-20 max-w-6xl mx-auto w-full">
         <section className="pt-10 md:pt-24">
           <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.6 }}>
