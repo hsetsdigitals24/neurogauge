@@ -545,8 +545,7 @@ export default function ProjectDetailPage() {
             )}
           </motion.div>
         </AnimatePresence>
-      </main>
-    </div>
+      </main> 
   );
 }
 
@@ -613,6 +612,6 @@ function SessionRow({ session, expanded, onToggle }: {
           </motion.div>
         )}
       </AnimatePresence>
-    </main>
+    </div>
   );
 }
