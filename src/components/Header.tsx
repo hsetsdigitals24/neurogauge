@@ -51,7 +51,7 @@ export function Header({ showBackButton = false, backHref = "/", title }: Header
             </div>
             {!title && (
               <div className="text-xs leading-tight text-[color:var(--muted)] hidden sm:block truncate">
-                Cognitive assessment platform
+                Neuroscience Lab
               </div>
             )}
             {title && (

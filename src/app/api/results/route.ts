@@ -11,7 +11,7 @@ export async function GET(req: Request) {
     where: { takerEmail: email },
     orderBy: { createdAt: "desc" },
     include: {
-      project: { select: { name: true } },
+      project: { select: { name: true, config: true } },
       blocks: {
         orderBy: { blockIndex: "asc" },
         include: { trials: true },

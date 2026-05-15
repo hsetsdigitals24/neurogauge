@@ -455,6 +455,7 @@ export default function ProjectDetailPage() {
                   <SessionRow
                     key={s.id}
                     session={s}
+                    customQuestions={cfg.customQuestions ?? []}
                     expanded={expandedSession === s.id}
                     onToggle={() => setExpandedSession(expandedSession === s.id ? null : s.id)}
                   />
@@ -549,8 +550,117 @@ export default function ProjectDetailPage() {
   );
 }
 
-function SessionRow({ session, expanded, onToggle }: {
-  session: TestSession; expanded: boolean; onToggle: () => void;
+const TLX_DIMS: { key: string; label: string; short: string }[] = [
+  { key: "mentalDemand", label: "Mental demand", short: "MD" },
+  { key: "physicalDemand", label: "Physical demand", short: "PD" },
+  { key: "temporalDemand", label: "Temporal demand", short: "TD" },
+  { key: "performance", label: "Performance", short: "PERF" },
+  { key: "effort", label: "Effort", short: "EFF" },
+  { key: "frustration", label: "Frustration", short: "FR" },
+  { key: "paasMentalEffort", label: "Paas (1–9)", short: "PAAS" },
+];
+
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+function PerLevelTLXTable({ blocks }: { blocks: any[] }) {
+  const withTLX = blocks.filter((b) => b.perLevelTLX);
+  if (withTLX.length === 0) return null;
+  return (
+    <div>
+      <h4 className="font-bold mb-3 text-sm">NASA-TLX by level</h4>
+      <div className="overflow-x-auto">
+        <table className="w-full text-sm">
+          <thead className="text-left text-[color:var(--muted)]">
+            <tr>
+              <th className="py-2 pr-4">Stimulus</th>
+              <th className="pr-4">Level</th>
+              {TLX_DIMS.map((d) => (
+                <th key={d.key} className="pr-3" title={d.label}>{d.short}</th>
+              ))}
+            </tr>
+          </thead>
+          <tbody>
+            {withTLX.map((b, i) => {
+              const t = b.perLevelTLX as Record<string, number>;
+              return (
+                <tr key={i} className="border-t border-[color:var(--border)]">
+                  <td className="py-2 pr-4 capitalize">{b.stimulusType?.replace("-", " ")}</td>
+                  <td className="pr-4">
+                    <span className="font-mono">{b.level}-back</span>
+                    {b.level === 0 && (
+                      <span className="ml-2 text-[10px] px-1.5 py-0.5 rounded-full bg-sky-50 text-sky-700 border border-sky-100 uppercase tracking-wide">Control</span>
+                    )}
+                  </td>
+                  {TLX_DIMS.map((d) => (
+                    <td key={d.key} className="pr-3 font-mono">{t?.[d.key] ?? "—"}</td>
+                  ))}
+                </tr>
+              );
+            })}
+          </tbody>
+        </table>
+      </div>
+      <p className="mt-2 text-xs text-[color:var(--muted)]">
+        MD = mental, PD = physical, TD = temporal demand; PERF = performance (0 perfect → 100 failure); EFF = effort; FR = frustration; PAAS = Paas 9-point mental effort.
+      </p>
+    </div>
+  );
+}
+
+function CustomAnswersBlock({
+  questions, answers,
+}: {
+  questions: CustomQuestion[];
+  answers: Record<string, string>;
+}) {
+  if (!questions || questions.length === 0) return null;
+  const answered = questions.filter((q) => answers[q.id] != null && answers[q.id] !== "");
+  if (answered.length === 0) return null;
+  const typeLabel: Record<CustomQuestion["type"], string> = {
+    "open": "Open",
+    "likert": "Likert 1–5",
+    "mcq-alpha": "MCQ (a–z)",
+    "mcq-roman": "MCQ (i–x)",
+  };
+  return (
+    <div>
+      <h4 className="font-bold mb-3 text-sm">Additional questions</h4>
+      <div className="space-y-3">
+        {answered.map((q) => (
+          <div key={q.id} className="p-3 bg-gray-50 rounded-xl border border-[color:var(--border)]">
+            <div className="text-xs text-[color:var(--muted)] mb-1 flex items-center gap-2">
+              <span>{q.prompt || "(no prompt)"}</span>
+              <span className="text-[10px] uppercase tracking-wide opacity-70">
+                {typeLabel[q.type] ?? q.type}
+              </span>
+            </div>
+            <div className="text-sm font-semibold whitespace-pre-wrap break-words">
+              {answers[q.id]}
+            </div>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+function TLXGrid({ tlx }: { tlx: Record<string, number> }) {
+  return (
+    <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+      {TLX_DIMS.map((d) => (
+        <div key={d.key} className="p-3 bg-gray-50 rounded-xl border border-[color:var(--border)]">
+          <div className="text-xs text-[color:var(--muted)]">{d.label}</div>
+          <div className="text-base font-bold mt-0.5 font-mono">{tlx[d.key] ?? "—"}</div>
+        </div>
+      ))}
+    </div>
+  );
+}
+
+function SessionRow({ session, customQuestions, expanded, onToggle }: {
+  session: TestSession;
+  customQuestions: CustomQuestion[];
+  expanded: boolean;
+  onToggle: () => void;
 }) {
   return (
     <div className="card overflow-hidden">
@@ -576,38 +686,62 @@ function SessionRow({ session, expanded, onToggle }: {
         {expanded && (
           <motion.div initial={{ height: 0 }} animate={{ height: "auto" }} exit={{ height: 0 }}
             className="overflow-hidden border-t border-[color:var(--border)]">
-            <div className="p-5">
-              <div className="overflow-x-auto">
-                <table className="w-full text-sm">
-                  <thead className="text-left text-[color:var(--muted)]">
-                    <tr>
-                      <th className="py-2 pr-4">Stimulus</th>
-                      <th className="pr-4">Level</th>
-                      <th className="pr-4">Accuracy</th>
-                      <th className="pr-4">d′</th>
-                      <th className="pr-4">Hits</th>
-                      <th className="pr-4">False Alarms</th>
-                      <th>RT mean (ms)</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {(session.blocks ?? []).map((b: TestSession, i: number) => {
-                      const m = summarize(b.trials ?? []);
-                      return (
-                        <tr key={i} className="border-t border-[color:var(--border)]">
-                          <td className="py-2 pr-4 capitalize">{b.stimulusType?.replace("-", " ")}</td>
-                          <td className="pr-4">{b.level}-back</td>
-                          <td className="pr-4">{(m.accuracy * 100).toFixed(1)}%</td>
-                          <td className="pr-4">{m.dPrime.toFixed(2)}</td>
-                          <td className="pr-4">{m.hits}</td>
-                          <td className="pr-4">{m.falseAlarms}</td>
-                          <td>{m.rtMean ? m.rtMean.toFixed(0) : "—"}</td>
-                        </tr>
-                      );
-                    })}
-                  </tbody>
-                </table>
+            <div className="p-5 space-y-6">
+              <div>
+                <h4 className="font-bold mb-3 text-sm">Performance by level</h4>
+                <div className="overflow-x-auto">
+                  <table className="w-full text-sm">
+                    <thead className="text-left text-[color:var(--muted)]">
+                      <tr>
+                        <th className="py-2 pr-4">Stimulus</th>
+                        <th className="pr-4">Level</th>
+                        <th className="pr-4">Accuracy</th>
+                        <th className="pr-4">d′</th>
+                        <th className="pr-4">Hits</th>
+                        <th className="pr-4">Misses</th>
+                        <th className="pr-4">False alarms</th>
+                        <th>RT mean (ms)</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {(session.blocks ?? []).map((b: TestSession, i: number) => {
+                        const m = summarize(b.trials ?? []);
+                        return (
+                          <tr key={i} className="border-t border-[color:var(--border)]">
+                            <td className="py-2 pr-4 capitalize">{b.stimulusType?.replace("-", " ")}</td>
+                            <td className="pr-4">
+                              <span className="font-mono">{b.level}-back</span>
+                              {b.level === 0 && (
+                                <span className="ml-2 text-[10px] px-1.5 py-0.5 rounded-full bg-sky-50 text-sky-700 border border-sky-100 uppercase tracking-wide">Control</span>
+                              )}
+                            </td>
+                            <td className="pr-4">{(m.accuracy * 100).toFixed(1)}%</td>
+                            <td className="pr-4 font-mono">{m.dPrime.toFixed(2)}</td>
+                            <td className="pr-4 text-emerald-700">{m.hits}</td>
+                            <td className="pr-4 text-rose-600">{m.misses}</td>
+                            <td className="pr-4 text-amber-600">{m.falseAlarms}</td>
+                            <td className="font-mono">{m.rtMean ? m.rtMean.toFixed(0) : "—"}</td>
+                          </tr>
+                        );
+                      })}
+                    </tbody>
+                  </table>
+                </div>
               </div>
+
+              <PerLevelTLXTable blocks={session.blocks ?? []} />
+
+              {session.globalTLX && (
+                <div>
+                  <h4 className="font-bold mb-3 text-sm">Global NASA-TLX (all levels)</h4>
+                  <TLXGrid tlx={session.globalTLX} />
+                </div>
+              )}
+
+              <CustomAnswersBlock
+                questions={customQuestions}
+                answers={session.customAnswers ?? {}}
+              />
             </div>
           </motion.div>
         )}

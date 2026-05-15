@@ -40,7 +40,7 @@ export default function SignupPage() {
           <div className="w-10 h-10 rounded-xl shimmer shadow-lg" />
           <div>
             <div className="font-bold text-xl gradient-text">Neurogauge</div>
-            <div className="text-xs text-[color:var(--muted)]">Cognitive assessment platform</div>
+            <div className="text-xs text-[color:var(--muted)]">Neuroscience Lab</div>
           </div>
         </Link>
         <div className="card p-8">

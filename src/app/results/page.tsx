@@ -202,7 +202,12 @@ function SessionCard({ session, index, expanded, onToggle }: {
                         return (
                           <tr key={bi} className="border-t border-[color:var(--border)]">
                             <td className="py-2 pr-4 capitalize">{(b.stimulusType ?? "").replace("-", " ")}</td>
-                            <td className="pr-4">{b.level}-back</td>
+                            <td className="pr-4">
+                              <span className="font-mono">{b.level}-back</span>
+                              {b.level === 0 && (
+                                <span className="ml-2 text-[10px] px-1.5 py-0.5 rounded-full bg-sky-50 text-sky-700 border border-sky-100 uppercase tracking-wide">Control</span>
+                              )}
+                            </td>
                             <td className="pr-4">
                               <AccuracyBadge val={m.accuracy} />
                             </td>
@@ -225,14 +230,85 @@ function SessionCard({ session, index, expanded, onToggle }: {
                 <AggregateSummary blocks={blocks} />
               </div>
 
+              {/* Per-level TLX */}
+              <PerLevelTLX blocks={blocks} />
+
               {/* TLX info */}
               {session.globalTLX && <TLXSummary tlx={session.globalTLX} />}
+
+              {/* Custom questions */}
+              <CustomAnswers
+                questions={session.project?.config?.customQuestions ?? []}
+                answers={session.customAnswers ?? {}}
+              />
             </div>
           </motion.div>
         )}
       </AnimatePresence>
     </motion.div>
   );
+}
+
+function CustomAnswers({
+  questions, answers,
+}: {
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  questions: any[];
+  answers: Record<string, string>;
+}) {
+  if (!questions || questions.length === 0) return null;
+  const answered = questions.filter((q) => answers[q.id] != null && answers[q.id] !== "");
+  if (answered.length === 0) return null;
+  return (
+    <div>
+      <h4 className="font-bold mb-3">Additional questions</h4>
+      <div className="space-y-3">
+        {answered.map((q) => (
+          <div key={q.id} className="p-3 bg-gray-50 rounded-xl border border-[color:var(--border)]">
+            <div className="text-xs text-[color:var(--muted)] mb-1">
+              {q.prompt}
+              <span className="ml-2 text-[10px] uppercase tracking-wide text-[color:var(--muted)]/70">
+                {q.type === "open" ? "Open" :
+                 q.type === "likert" ? "Likert 1–5" :
+                 q.type === "mcq-alpha" ? "MCQ (a–z)" :
+                 q.type === "mcq-roman" ? "MCQ (i–x)" : q.type}
+              </span>
+            </div>
+            <div className="text-sm font-semibold whitespace-pre-wrap break-words">
+              {formatCustomAnswer(q, answers[q.id])}
+            </div>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+function formatCustomAnswer(q: any, raw: string): string {
+  if (raw == null || raw === "") return "—";
+  if (q.type === "mcq-alpha" || q.type === "mcq-roman") {
+    const opts: string[] = q.options ?? [];
+    const idx = parseInt(raw, 10);
+    if (!Number.isNaN(idx) && opts[idx] != null) {
+      const label = q.type === "mcq-alpha"
+        ? String.fromCharCode(97 + idx)
+        : toRoman(idx + 1).toLowerCase();
+      return `${label}. ${opts[idx]}`;
+    }
+  }
+  return String(raw);
+}
+
+function toRoman(n: number): string {
+  const map: [number, string][] = [
+    [10, "X"], [9, "IX"], [5, "V"], [4, "IV"], [1, "I"],
+  ];
+  let out = "", v = n;
+  for (const [num, sym] of map) {
+    while (v >= num) { out += sym; v -= num; }
+  }
+  return out;
 }
 
 function AccuracyBadge({ val }: { val: number }) {
@@ -275,15 +351,66 @@ function AggregateSummary({ blocks }: { blocks: AnySession[] }) {
   );
 }
 
-function TLXSummary({ tlx }: { tlx: Record<string, number> }) {
-  const labels: Record<string, string> = {
-    mentalDemand: "Mental demand", physicalDemand: "Physical demand",
-    temporalDemand: "Temporal demand", performance: "Performance",
-    effort: "Effort", frustration: "Frustration", paasMentalEffort: "Paas mental effort",
-  };
+const TLX_LABELS: Record<string, { label: string; short: string }> = {
+  mentalDemand: { label: "Mental demand", short: "MD" },
+  physicalDemand: { label: "Physical demand", short: "PD" },
+  temporalDemand: { label: "Temporal demand", short: "TD" },
+  performance: { label: "Performance", short: "PERF" },
+  effort: { label: "Effort", short: "EFF" },
+  frustration: { label: "Frustration", short: "FR" },
+  paasMentalEffort: { label: "Paas mental effort", short: "PAAS" },
+};
+
+function PerLevelTLX({ blocks }: { blocks: AnySession[] }) {
+  const withTLX = blocks.filter((b) => b.perLevelTLX);
+  if (withTLX.length === 0) return null;
+  const keys = Object.keys(TLX_LABELS);
   return (
     <div>
-      <h4 className="font-bold mb-3">NASA-TLX workload</h4>
+      <h4 className="font-bold mb-3">NASA-TLX by level</h4>
+      <div className="overflow-x-auto">
+        <table className="w-full text-sm">
+          <thead className="text-left text-[color:var(--muted)]">
+            <tr>
+              <th className="py-2 pr-4">Stimulus</th>
+              <th className="pr-4">Level</th>
+              {keys.map((k) => (
+                <th key={k} className="pr-3" title={TLX_LABELS[k].label}>{TLX_LABELS[k].short}</th>
+              ))}
+            </tr>
+          </thead>
+          <tbody>
+            {withTLX.map((b, i) => {
+              const t = b.perLevelTLX as Record<string, number>;
+              return (
+                <tr key={i} className="border-t border-[color:var(--border)]">
+                  <td className="py-2 pr-4 capitalize">{(b.stimulusType ?? "").replace("-", " ")}</td>
+                  <td className="pr-4">
+                    <span className="font-mono">{b.level}-back</span>
+                    {b.level === 0 && (
+                      <span className="ml-2 text-[10px] px-1.5 py-0.5 rounded-full bg-sky-50 text-sky-700 border border-sky-100 uppercase tracking-wide">Control</span>
+                    )}
+                  </td>
+                  {keys.map((k) => (
+                    <td key={k} className="pr-3 font-mono">{t?.[k] ?? "—"}</td>
+                  ))}
+                </tr>
+              );
+            })}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  );
+}
+
+function TLXSummary({ tlx }: { tlx: Record<string, number> }) {
+  const labels: Record<string, string> = Object.fromEntries(
+    Object.entries(TLX_LABELS).map(([k, v]) => [k, v.label])
+  );
+  return (
+    <div>
+      <h4 className="font-bold mb-3">Global NASA-TLX (all levels)</h4>
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
         {Object.entries(tlx).map(([k, v]) => (
           <div key={k} className="p-3 bg-gray-50 rounded-xl border border-[color:var(--border)]">

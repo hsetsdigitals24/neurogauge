@@ -348,7 +348,7 @@ function TakerInfoScreen({ value, onChange, onNext }: {
 
         <div>
           <label className="label">Handedness <span className="text-[color:var(--danger)]">*</span></label>
-          <div className="flex gap-2 mt-1">
+          <div className="flex flex-wrap gap-2 mt-1">
             {["right", "left", "ambidextrous"].map((h) => (
               <button key={h}
                 className={`btn flex-1 capitalize ${value.handedness === h ? "btn-primary" : "btn-ghost"}`}
