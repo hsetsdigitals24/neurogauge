@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { Code2, Globe, Mail } from "lucide-react";
+import Image from "next/image";
 
 export function Footer() {
   const year = new Date().getFullYear();
@@ -8,9 +9,10 @@ export function Footer() {
       <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-10 py-8 grid gap-8 md:grid-cols-3">
         <div>
           <Link href="/" className="flex items-center gap-2 group">
-            <div className="w-8 h-8 rounded-xl shimmer shadow" />
+            {/* <div className="w-8 h-8 rounded-xl shimmer shadow" /> */}
             <div>
-              <div className="font-bold gradient-text leading-tight">Neurogauge</div>
+              <div className="font-bold gradient-text leading-tight"> 
+                <Image src="/assets/Asset 4@4x.png" alt="Logo" width={100} height={30} className="h-auto w-auto" /></div>
               <div className="text-xs text-[color:var(--muted)] leading-tight">
                 Neuroscience Lab
               </div>

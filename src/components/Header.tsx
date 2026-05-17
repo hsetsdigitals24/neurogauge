@@ -3,6 +3,7 @@ import Link from "next/link";
 import { motion } from "framer-motion";
 import { useEffect, useState } from "react";
 import { LogOut, LogIn, ArrowLeft } from "lucide-react";
+import Image from "next/image";
 
 interface HeaderProps {
   showBackButton?: boolean;
@@ -44,10 +45,11 @@ export function Header({ showBackButton = false, backHref = "/", title }: Header
           </Link>
         )}
         <Link href="/" className="flex items-center gap-2 sm:gap-3 group min-w-0">
-          <div className="w-8 h-8 sm:w-10 sm:h-10 rounded-xl shimmer shadow-lg flex-shrink-0" />
+          {/* <div className="w-8 h-8 sm:w-10 sm:h-10 rounded-xl shimmer shadow-lg flex-shrink-0" /> */}
           <div className="min-w-0">
-            <div className="font-bold text-base sm:text-lg md:text-xl leading-tight gradient-text truncate">
-              Neurogauge
+           
+            <div className="font-bold text-base sm:text-lg md:text-xl leading-tight gradient-text truncate"> 
+             <Image src="/assets/Asset 4@4x.png" alt="Logo" width={100} height={30} className="h-auto w-auto" />
             </div>
             {!title && (
               <div className="text-xs leading-tight text-[color:var(--muted)] hidden sm:block truncate">
