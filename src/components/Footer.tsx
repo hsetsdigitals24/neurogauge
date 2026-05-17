@@ -12,7 +12,7 @@ export function Footer() {
             <div>
               <div className="font-bold gradient-text leading-tight">Neurogauge</div>
               <div className="text-xs text-[color:var(--muted)] leading-tight">
-                Cognitive assessment platform
+                Neuroscience Lab
               </div>
             </div>
           </Link>
@@ -37,18 +37,18 @@ export function Footer() {
           <p className="text-sm text-[color:var(--muted)] mb-3">
             Built by{" "}
             <a
-              href="https://example.com"
+              href="https://h-sets.com/"
               target="_blank"
               rel="noreferrer"
               className="font-semibold text-[color:var(--fg)] hover:underline"
             >
-              Your Name
+             H-SETS Digital Solutions
             </a>
             .
           </p>
           <div className="flex items-center gap-3 text-[color:var(--muted)]">
             <a
-              href="https://example.com"
+              href="https://h-sets.com/"
               target="_blank"
               rel="noreferrer"
               aria-label="Website"
@@ -57,16 +57,7 @@ export function Footer() {
               <Globe className="w-4 h-4" />
             </a>
             <a
-              href="https://github.com/"
-              target="_blank"
-              rel="noreferrer"
-              aria-label="GitHub"
-              className="hover:text-[color:var(--fg)]"
-            >
-              <Code2 className="w-4 h-4" />
-            </a>
-            <a
-              href="mailto:hello@example.com"
+              href="mailto:info@h-sets.com"
               aria-label="Email"
               className="hover:text-[color:var(--fg)]"
             >
@@ -78,7 +69,7 @@ export function Footer() {
 
       <div className="border-t border-[color:var(--border)]">
         <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-10 py-4 flex flex-col sm:flex-row items-center justify-between gap-2 text-xs text-[color:var(--muted)]">
-          <span>© {year} Neurogauge. All rights reserved.</span>
+          <span>© {year} Neurogauge Neuroscience Lab. All rights reserved.</span>
           <span>For research use only.</span>
         </div>
       </div>

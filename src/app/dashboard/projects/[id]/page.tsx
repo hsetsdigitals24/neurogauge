@@ -30,7 +30,7 @@ interface Project {
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 type TestSession = any;
 
-type Tab = "overview" | "config" | "results" | "collaborators";
+type Tab = "overview" | "config" | "results" | "analysis" | "collaborators";
 
 export default function ProjectDetailPage() {
   const { id } = useParams<{ id: string }>();
@@ -149,6 +149,7 @@ export default function ProjectDetailPage() {
     { key: "overview", label: "Overview" },
     { key: "config", label: "Configuration" },
     { key: "results", label: `Results (${sessions.length})` },
+    { key: "analysis", label: "Analysis" },
     { key: "collaborators", label: `Collaborators (${project.collaborators.length})` },
   ];
 
@@ -460,6 +461,16 @@ export default function ProjectDetailPage() {
                     onToggle={() => setExpandedSession(expandedSession === s.id ? null : s.id)}
                   />
                 ))}
+              </div>
+            )}
+
+            {/* ANALYSIS TAB */}
+            {tab === "analysis" && (
+              <div className="card p-8 text-center">
+                <h2 className="text-2xl font-bold">Analysis</h2>
+                <p className="mt-4 text-sm text-[color:var(--muted)]">
+                  Analytics are coming soon. Check back later for project insights and reports.
+                </p>
               </div>
             )}
 
