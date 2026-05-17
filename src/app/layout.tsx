@@ -4,7 +4,7 @@ import { Header } from "@/components/Header";
 import { Footer } from "@/components/Footer";
 
 export const metadata: Metadata = {
-  title: "Neurogauge N-Back Lab — Cognitive Assessment Platform",
+  title: "Neurogauge  Neuroscience Lab — Cognitive Assessment Platform",
   description:
     "Research-grade N-back testing across Letters, Shapes, and Rotated-E with NASA-TLX questionnaires and CSV export.",
 };
