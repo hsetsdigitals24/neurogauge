@@ -53,10 +53,11 @@ export async function GET(req: Request, ctx: Ctx) {
     },
   });
 
-  const customQuestionIds = Array.from(new Set(
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const customQuestions: { id: string; prompt: string }[] = (
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    ((project.config as any)?.customQuestions ?? []).map((q: any) => q.id as string)
-  )) as string[];
+    ((project.config as any)?.customQuestions ?? []) as any[]
+  ).map((q) => ({ id: String(q.id), prompt: String(q.prompt ?? q.id) }));
 
   const slug = (project.name as string)
     .toLowerCase()
@@ -78,7 +79,6 @@ export async function GET(req: Request, ctx: Ctx) {
       "global_effort", "global_frustration", "global_paas",
       "taker_age", "taker_handedness", "taker_education",
       "started_at", "finished_at",
-      ...customQuestionIds.map((id) => `custom_${id}`),
     ];
     const rows = [headers.join(",")];
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -101,7 +101,6 @@ export async function GET(req: Request, ctx: Ctx) {
           onsetTs: t.onsetTs,
         }));
         const m = summarize(trials);
-        const answers = (s.customAnswers as Record<string, string> | null) ?? {};
         rows.push([
           s.id, s.participantId, s.takerEmail,
           b.stimulusType, b.level,
@@ -116,7 +115,6 @@ export async function GET(req: Request, ctx: Ctx) {
           s.takerAge ?? "", s.takerHandedness ?? "", s.takerEducation ?? "",
           s.startedAt ? new Date(s.startedAt).toISOString() : "",
           s.finishedAt ? new Date(s.finishedAt).toISOString() : "",
-          ...customQuestionIds.map((id) => answers[id] ?? ""),
         ].map(esc).join(","));
       }
     }
@@ -133,13 +131,11 @@ export async function GET(req: Request, ctx: Ctx) {
       "global_mental", "global_physical", "global_temporal", "global_performance",
       "global_effort", "global_frustration", "global_paas",
       "taker_age", "taker_handedness", "taker_education",
-      ...customQuestionIds.map((id) => `custom_${id}`),
     ];
     const rows = [headers.join(",")];
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     for (const s of sessions as any[]) {
       const g = (s.globalTLX as Record<string, number> | null) ?? null;
-      const answers = (s.customAnswers as Record<string, string> | null) ?? {};
       for (const b of s.blocks) {
         const tlx = (b.perLevelTLX as Record<string, number> | null) ?? null;
         for (const t of b.trials) {
@@ -153,13 +149,40 @@ export async function GET(req: Request, ctx: Ctx) {
             g?.mentalDemand ?? "", g?.physicalDemand ?? "", g?.temporalDemand ?? "",
             g?.performance ?? "", g?.effort ?? "", g?.frustration ?? "", g?.paasMentalEffort ?? "",
             s.takerAge ?? "", s.takerHandedness ?? "", s.takerEducation ?? "",
-            ...customQuestionIds.map((id) => answers[id] ?? ""),
           ].map(esc).join(","));
         }
       }
     }
     body = rows.join("\n");
     filename = `${slug}_trials_long.csv`;
+  }
+
+  if (customQuestions.length > 0) {
+    const seen = new Set<string>();
+    const answerRows: string[] = [];
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    for (const s of sessions as any[]) {
+      if (seen.has(s.id)) continue;
+      seen.add(s.id);
+      const answers = (s.customAnswers as Record<string, string> | null) ?? {};
+      answerRows.push([
+        s.id,
+        s.participantId,
+        s.takerEmail,
+        s.startedAt ? new Date(s.startedAt).toISOString() : "",
+        s.finishedAt ? new Date(s.finishedAt).toISOString() : "",
+        ...customQuestions.map((q) => answers[q.id] ?? ""),
+      ].map(esc).join(","));
+    }
+
+    if (answerRows.length > 0) {
+      const sectionHeader = [esc("CUSTOM QUESTION ANSWERS")].join(",");
+      const answerHeaders = [
+        "session_id", "participant_id", "taker_email", "started_at", "finished_at",
+        ...customQuestions.map((q) => q.prompt),
+      ].map(esc).join(",");
+      body = body + "\n\n" + sectionHeader + "\n" + answerHeaders + "\n" + answerRows.join("\n");
+    }
   }
 
   return new Response(body, {
