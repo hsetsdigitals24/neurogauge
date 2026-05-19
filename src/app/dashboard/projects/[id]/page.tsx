@@ -5,7 +5,7 @@ import Link from "next/link";
 import { motion, AnimatePresence } from "framer-motion";
 import {
   ArrowLeft, Copy, Check, Users, Plus, Trash2,
-  ChevronDown, ChevronUp, FlaskConical, ExternalLink,
+  ChevronDown, ChevronUp, FlaskConical, ExternalLink, Download,
 } from "lucide-react";
 import { CustomQuestion, Level, SHAPE_LIBRARY, StimulusType, StudyConfig } from "@/lib/types";
 import { summarize } from "@/lib/scoring";
@@ -443,8 +443,9 @@ export default function ProjectDetailPage() {
             {/* RESULTS TAB */}
             {tab === "results" && (
               <div className="space-y-4">
-                <div className="flex items-center justify-between">
+                <div className="flex items-center justify-between gap-3 flex-wrap">
                   <h2 className="text-xl font-bold">{sessions.length} session{sessions.length !== 1 ? "s" : ""}</h2>
+                  <DownloadResults projectId={id} disabled={sessions.length === 0} />
                 </div>
                 {sessions.length === 0 && (
                   <div className="card p-10 text-center">
@@ -558,6 +559,79 @@ export default function ProjectDetailPage() {
           </motion.div>
         </AnimatePresence>
       </main> 
+  );
+}
+
+function DownloadResults({ projectId, disabled }: { projectId: string; disabled: boolean }) {
+  const [open, setOpen] = useState(false);
+  const [busy, setBusy] = useState<"long" | "wide" | null>(null);
+
+  async function download(format: "long" | "wide") {
+    setBusy(format);
+    try {
+      const res = await fetch(`/api/projects/${projectId}/export?format=${format}`);
+      if (!res.ok) {
+        alert("Could not download results.");
+        return;
+      }
+      const blob = await res.blob();
+      const cd = res.headers.get("Content-Disposition") ?? "";
+      const match = /filename="([^"]+)"/.exec(cd);
+      const filename = match?.[1] ?? `results_${format}.csv`;
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = filename;
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      URL.revokeObjectURL(url);
+      setOpen(false);
+    } finally {
+      setBusy(null);
+    }
+  }
+
+  return (
+    <div className="relative">
+      <button
+        className="btn btn-primary text-sm flex items-center gap-2"
+        onClick={() => setOpen((v) => !v)}
+        disabled={disabled}
+        title={disabled ? "No sessions to download" : "Download results"}
+      >
+        <Download className="w-4 h-4" /> Download
+        <ChevronDown className="w-3.5 h-3.5 opacity-80" />
+      </button>
+      {open && (
+        <div className="absolute right-0 mt-2 w-72 z-20 card p-2 shadow-lg">
+          <button
+            className="w-full text-left p-3 rounded-lg hover:bg-gray-50 disabled:opacity-50"
+            onClick={() => download("long")}
+            disabled={busy !== null}
+          >
+            <div className="font-semibold text-sm">
+              {busy === "long" ? "Preparing…" : "Trial-level CSV (long)"}
+            </div>
+            <div className="text-xs text-[color:var(--muted)] mt-0.5">
+              One row per trial. Best for analysis in R/Python/SPSS.
+            </div>
+          </button>
+          <button
+            className="w-full text-left p-3 rounded-lg hover:bg-gray-50 disabled:opacity-50"
+            onClick={() => download("wide")}
+            disabled={busy !== null}
+          >
+            <div className="font-semibold text-sm">
+              {busy === "wide" ? "Preparing…" : "Summary CSV (wide)"}
+            </div>
+            <div className="text-xs text-[color:var(--muted)] mt-0.5">
+              One row per participant × stimulus × level, with accuracy, d′, RT, NASA-TLX.
+            </div>
+          </button>
+        </div>
+      )}
+    </div>
   );
 }
 
