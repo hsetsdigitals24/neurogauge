@@ -54,8 +54,9 @@ export async function GET(req: Request, ctx: Ctx) {
   });
 
   const customQuestionIds = Array.from(new Set(
-    ((project.config as any)?.customQuestions ?? []).map((q: any) => q.id)
-  ));
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    ((project.config as any)?.customQuestions ?? []).map((q: any) => q.id as string)
+  )) as string[];
 
   const slug = (project.name as string)
     .toLowerCase()
