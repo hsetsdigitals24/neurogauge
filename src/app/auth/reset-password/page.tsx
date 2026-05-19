@@ -113,7 +113,7 @@ export default function ResetPasswordPage() {
     <main className="min-h-screen flex items-center justify-center px-4">
       <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} className="w-full max-w-md">
         <Link href="/" className="flex items-center gap-3 mb-8 group justify-center">
-          <div className="w-10 h-10 rounded-xl shimmer shadow-lg" />
+         
           <div className="min-w-0">
             <div className="font-bold text-base sm:text-lg md:text-xl leading-tight gradient-text truncate">
               <Image src="/assets/Asset 4@4x.png" alt="Logo" width={100} height={30} className="h-auto w-auto" />
