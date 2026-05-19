@@ -2,7 +2,8 @@
 import { useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { motion } from "framer-motion";
+import { motion } from "framer-motion"; 
+import Image from "next/image";
 
 export default function SignupPage() {
   const router = useRouter();
@@ -38,10 +39,16 @@ export default function SignupPage() {
       <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} className="w-full max-w-md">
         <Link href="/" className="flex items-center gap-3 mb-8 justify-center">
           <div className="w-10 h-10 rounded-xl shimmer shadow-lg" />
-          <div>
-            <div className="font-bold text-xl gradient-text">Neurogauge</div>
-            <div className="text-xs text-[color:var(--muted)]">Neuroscience Lab</div>
-          </div>
+         <div className="min-w-0">
+                   
+                    <div className="font-bold text-base sm:text-lg md:text-xl leading-tight gradient-text truncate"> 
+                     <Image src="/assets/Asset 4@4x.png" alt="Logo" width={100} height={30} className="h-auto w-auto" />
+                    </div> 
+                      <div className="text-xs leading-tight text-[color:var(--muted)] hidden sm:block truncate">
+                        Neuroscience Lab
+                      </div>
+                    
+                  </div>
         </Link>
         <div className="card p-8">
           <h1 className="text-2xl font-extrabold mb-1">Create an account</h1>
