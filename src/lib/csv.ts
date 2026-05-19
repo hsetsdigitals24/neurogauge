@@ -8,17 +8,33 @@ function csvEscape(v: unknown): string {
 }
 
 export function trialsLongCsv(sess: Session): string {
+  const questionIds = (sess.config.customQuestions ?? []).map((q) => q.id);
   const headers = [
     "participant_id","study","timing_mode","stimulus_type","level","trial_index",
-    "is_priming","stimulus","expected_match","responded","response_yes","correct","rt_ms","onset_ts"
+    "is_priming","stimulus","expected_match","responded","response_yes","correct","rt_ms","onset_ts",
+    "mental_demand","physical_demand","temporal_demand","performance","effort","frustration","paas_mental_effort",
+    "global_mental","global_physical","global_temporal","global_performance",
+    "global_effort","global_frustration","global_paas",
+    "age","gender","handedness","education",
+    ...questionIds.map((id) => `custom_${id}`),
   ];
   const rows: string[] = [headers.join(",")];
+  const g = sess.globalTLX;
+  const d = sess.demographics ?? {};
+  const answers = sess.customAnswers ?? {};
   for (const b of sess.blocks) {
+    const tlx = b.perLevelTLX;
     for (const t of b.trials) {
       rows.push([
         sess.participantId, sess.config.studyName, sess.config.timingMode,
         b.stimulusType, b.level, t.trialIndex, t.isPriming, t.stimulus,
         t.expectedMatch, t.responded, t.responseYes, t.correct, t.rtMs, t.onsetTs,
+        tlx?.mentalDemand ?? "", tlx?.physicalDemand ?? "", tlx?.temporalDemand ?? "",
+        tlx?.performance ?? "", tlx?.effort ?? "", tlx?.frustration ?? "", tlx?.paasMentalEffort ?? "",
+        g?.mentalDemand ?? "", g?.physicalDemand ?? "", g?.temporalDemand ?? "",
+        g?.performance ?? "", g?.effort ?? "", g?.frustration ?? "", g?.paasMentalEffort ?? "",
+        d.age ?? "", d.gender ?? "", d.handedness ?? "", d.education ?? "",
+        ...questionIds.map((id) => answers[id] ?? ""),
       ].map(csvEscape).join(","));
     }
   }
@@ -26,6 +42,7 @@ export function trialsLongCsv(sess: Session): string {
 }
 
 export function summaryWideCsv(sess: Session): string {
+  const questionIds = (sess.config.customQuestions ?? []).map((q) => q.id);
   const headers = [
     "participant_id","stimulus_type","level","scorable","hits","misses","false_alarms",
     "correct_rejections","accuracy","hit_rate","fa_rate","d_prime","criterion",
@@ -33,11 +50,13 @@ export function summaryWideCsv(sess: Session): string {
     "temporal_demand","performance","effort","frustration","paas_mental_effort",
     "global_mental","global_physical","global_temporal","global_performance",
     "global_effort","global_frustration","global_paas",
-    "age","gender","handedness","education"
+    "age","gender","handedness","education",
+    ...questionIds.map((id) => `custom_${id}`),
   ];
   const rows = [headers.join(",")];
   const g = sess.globalTLX;
   const d = sess.demographics ?? {};
+  const answers = sess.customAnswers ?? {};
   for (const b of sess.blocks) {
     const m = summarize(b.trials);
     const t = b.perLevelTLX;
@@ -52,6 +71,7 @@ export function summaryWideCsv(sess: Session): string {
       g?.mentalDemand ?? "", g?.physicalDemand ?? "", g?.temporalDemand ?? "",
       g?.performance ?? "", g?.effort ?? "", g?.frustration ?? "", g?.paasMentalEffort ?? "",
       d.age ?? "", d.gender ?? "", d.handedness ?? "", d.education ?? "",
+      ...questionIds.map((id) => answers[id] ?? ""),
     ].map(csvEscape).join(","));
   }
   return rows.join("\n");
