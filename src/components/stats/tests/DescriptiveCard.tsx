@@ -6,6 +6,7 @@ import { VariablePicker } from "../PickSeries";
 import { StatTable, CsvDownload } from "../ResultTable";
 import { Histogram } from "../Histogram";
 import { BoxPlot } from "../BoxPlot";
+import { ChartDownload } from "../ChartDownload";
 import { useExtract } from "../workspace/WorkspaceProvider";
 
 export function DescriptiveCard({ sessions, catalog, questions }: {
@@ -42,11 +43,15 @@ export function DescriptiveCard({ sessions, catalog, questions }: {
           <div className="grid md:grid-cols-2 gap-4">
             <div>
               <h5 className="text-xs font-semibold text-[color:var(--muted)] uppercase tracking-wide mb-1">Histogram</h5>
-              <Histogram bins={histogram(rows.map((r) => r.value))} />
+              <ChartDownload filename="descriptive_histogram">
+                <Histogram bins={histogram(rows.map((r) => r.value))} />
+              </ChartDownload>
             </div>
             <div>
               <h5 className="text-xs font-semibold text-[color:var(--muted)] uppercase tracking-wide mb-1">Boxplot</h5>
-              <BoxPlot groups={[{ name: variableLabel(variable, questions), values: rows.map((r) => r.value) }]} />
+              <ChartDownload filename="descriptive_boxplot">
+                <BoxPlot groups={[{ name: variableLabel(variable, questions), values: rows.map((r) => r.value) }]} />
+              </ChartDownload>
             </div>
           </div>
           <div className="flex justify-end pt-2">

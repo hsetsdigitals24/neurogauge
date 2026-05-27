@@ -2,6 +2,9 @@ import { SignJWT, jwtVerify } from "jose";
 import bcrypt from "bcryptjs";
 import { cookies } from "next/headers";
 
+if (process.env.NODE_ENV === "production" && !process.env.JWT_SECRET) {
+  throw new Error("JWT_SECRET environment variable must be set in production");
+}
 const SECRET = new TextEncoder().encode(
   process.env.JWT_SECRET ?? "neurogauge-dev-secret-change-in-production"
 );

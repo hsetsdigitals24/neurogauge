@@ -28,13 +28,24 @@ export async function POST(req: Request, ctx: Ctx) {
     globalTLX,
     customAnswers,
     blocks,
+    clientSubmissionId,
   } = body;
 
   if (!takerEmail || !takerAge || !takerHandedness || !takerEducation) {
     return NextResponse.json({ error: "Missing required taker info" }, { status: 400 });
   }
 
-  const session = await db.testSession.create({
+  if (clientSubmissionId) {
+    const existing = await db.testSession.findUnique({
+      where: { clientSubmissionId },
+      select: { id: true, participantId: true, createdAt: true },
+    });
+    if (existing) return NextResponse.json(existing, { status: 200 });
+  }
+
+  let session;
+  try {
+    session = await db.testSession.create({
     data: {
       projectId: project.id,
       participantId,
@@ -48,6 +59,7 @@ export async function POST(req: Request, ctx: Ctx) {
       demographics: demographics ?? undefined,
       globalTLX: globalTLX ?? undefined,
       customAnswers: customAnswers ?? undefined,
+      clientSubmissionId: clientSubmissionId ?? undefined,
       blocks: {
         create: (blocks ?? []).map((b: {
           stimulusType: string; level: number; perLevelTLX?: object;
@@ -77,6 +89,19 @@ export async function POST(req: Request, ctx: Ctx) {
     },
     select: { id: true, participantId: true, createdAt: true },
   });
+  } catch (e: unknown) {
+    if (clientSubmissionId && (e as { code?: string })?.code === "P2002") {
+      const existing = await db.testSession.findUnique({
+        where: { clientSubmissionId },
+        select: { id: true, participantId: true, createdAt: true },
+      });
+      if (existing) return NextResponse.json(existing, { status: 200 });
+    }
+    throw e;
+  }
+
+  // Invalidate analytics cache for this project — new data changes results.
+  await db.analysisResult.deleteMany({ where: { projectId: project.id } }).catch(() => {});
 
   return NextResponse.json(session, { status: 201 });
 }

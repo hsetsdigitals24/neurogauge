@@ -7,6 +7,7 @@ import { CustomQuestion } from "@/lib/types";
 import { VariablePicker, CategoricalPicker } from "../PickSeries";
 import { StatTable, CsvDownload } from "../ResultTable";
 import { LinePlot } from "../LinePlot";
+import { ChartDownload } from "../ChartDownload";
 import { useExtract } from "../workspace/WorkspaceProvider";
 
 export function TwoWayAnovaCard({ sessions, catalog, questions }: {
@@ -95,18 +96,20 @@ export function TwoWayAnovaCard({ sessions, catalog, questions }: {
           </div>
           <div>
             <h5 className="text-xs font-semibold text-[color:var(--muted)] uppercase tracking-wide mb-1">Interaction plot</h5>
-            <LinePlot
-              xAxisCategorical={result.res.levelsA}
-              series={result.res.levelsB.map((bL) => ({
-                name: bL,
-                points: result.res.levelsA.map((aL) => {
-                  const c = result.res.cellMeans.find((cm) => cm.a === aL && cm.b === bL);
-                  return { x: aL, y: c?.mean ?? NaN };
-                }).filter((p) => isFinite(p.y)),
-              }))}
-              xLabel={result.res.factorA}
-              yLabel="cell mean"
-            />
+            <ChartDownload filename="anova2_interaction">
+              <LinePlot
+                xAxisCategorical={result.res.levelsA}
+                series={result.res.levelsB.map((bL) => ({
+                  name: bL,
+                  points: result.res.levelsA.map((aL) => {
+                    const c = result.res.cellMeans.find((cm) => cm.a === aL && cm.b === bL);
+                    return { x: aL, y: c?.mean ?? NaN };
+                  }).filter((p) => isFinite(p.y)),
+                }))}
+                xLabel={result.res.factorA}
+                yLabel="cell mean"
+              />
+            </ChartDownload>
           </div>
           <div className="flex justify-end pt-2">
             <CsvDownload filename="two_way_anova.csv" rows={[

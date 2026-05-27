@@ -2,6 +2,7 @@
 import { useState, useMemo } from "react";
 import { blockTrajectory, fmt, fmtP, pStars, type GroupGrowthResult } from "@/lib/stats";
 import { ScatterPlot } from "../ScatterPlot";
+import { ChartDownload } from "../ChartDownload";
 import { StatTable, CsvDownload } from "../ResultTable";
 
 type MetricKey = "accuracy" | "dPrime" | "rtMean" | "rtMedian" | "hitRate" | "faRate";
@@ -60,11 +61,13 @@ export function GrowthCurveCard({ sessions }: {
           <h5 className="text-xs font-semibold text-[color:var(--muted)] uppercase tracking-wide mb-1">
             Group trajectory ({METRIC_LABELS[metric]} vs block index)
           </h5>
-          <ScatterPlot
-            x={result.group.pointMeans.map((p) => p.x)}
-            y={result.group.pointMeans.map((p) => p.mean)}
-            xLabel="Block index" yLabel={METRIC_LABELS[metric]}
-          />
+          <ChartDownload filename="growth_scatter">
+            <ScatterPlot
+              x={result.group.pointMeans.map((p) => p.x)}
+              y={result.group.pointMeans.map((p) => p.mean)}
+              xLabel="Block index" yLabel={METRIC_LABELS[metric]}
+            />
+          </ChartDownload>
         </div>
       )}
 

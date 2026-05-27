@@ -8,6 +8,7 @@ import { CustomQuestion } from "@/lib/types";
 import { VariablePicker, CategoricalPicker } from "../PickSeries";
 import { StatTable, CsvDownload } from "../ResultTable";
 import { ForestPlot } from "../ForestPlot";
+import { ChartDownload } from "../ChartDownload";
 import { Plus, X } from "lucide-react";
 import { useExtract } from "../workspace/WorkspaceProvider";
 
@@ -130,12 +131,14 @@ export function LogisticRegressionCard({ sessions, catalog, questions }: {
             <h5 className="text-xs font-semibold text-[color:var(--muted)] uppercase tracking-wide mb-1">
               Odds ratios ({((1 - alpha) * 100).toFixed(0)}% CI)
             </h5>
-            <ForestPlot
-              rows={result.reg.coefficients.filter((c) => c.name !== "(Intercept)").map((c) => ({
-                name: c.name, value: c.oddsRatio, ciLow: c.ciLower, ciHigh: c.ciUpper, significant: c.pValue < 0.05,
-              }))}
-              refValue={1} xLabel="Odds ratio"
-            />
+            <ChartDownload filename="logistic_forest">
+              <ForestPlot
+                rows={result.reg.coefficients.filter((c) => c.name !== "(Intercept)").map((c) => ({
+                  name: c.name, value: c.oddsRatio, ciLow: c.ciLower, ciHigh: c.ciUpper, significant: c.pValue < 0.05,
+                }))}
+                refValue={1} xLabel="Odds ratio"
+              />
+            </ChartDownload>
           </div>
           <div className="flex justify-end pt-2">
             <CsvDownload filename="logistic.csv" rows={[

@@ -46,6 +46,21 @@ model Project {
   collaborators ProjectCollaborator[]
   invites       CollaboratorInvite[]
   sessions      TestSession[]
+  analysisResults AnalysisResult[]
+}
+
+model AnalysisResult {
+  id          String   @id @default(cuid())
+  projectId   String
+  analysisKey String
+  paramsHash  String
+  result      Json
+  createdAt   DateTime @default(now())
+
+  project Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
+
+  @@unique([projectId, analysisKey, paramsHash])
+  @@index([projectId])
 }
 
 model ProjectCollaborator {
@@ -87,6 +102,7 @@ model TestSession {
   demographics  Json?
   globalTLX     Json?
   customAnswers Json?
+  clientSubmissionId String? @unique
   createdAt     DateTime  @default(now())
 
   project Project      @relation(fields: [projectId], references: [id], onDelete: Cascade)
@@ -138,6 +154,7 @@ model Session {
   demographics  Json?
   globalTLX     Json?
   customAnswers Json?
+  clientSubmissionId String? @unique
   createdAt     DateTime  @default(now())
 
   blocks Block[]

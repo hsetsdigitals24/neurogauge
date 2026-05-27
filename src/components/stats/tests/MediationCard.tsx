@@ -8,6 +8,7 @@ import { CustomQuestion } from "@/lib/types";
 import { VariablePicker } from "../PickSeries";
 import { StatTable, CsvDownload } from "../ResultTable";
 import { PathDiagram } from "../PathDiagram";
+import { ChartDownload } from "../ChartDownload";
 import { useExtract } from "../workspace/WorkspaceProvider";
 
 export function MediationCard({ sessions, catalog, questions }: {
@@ -74,19 +75,21 @@ export function MediationCard({ sessions, catalog, questions }: {
           </p>
           <div>
             <h5 className="text-xs font-semibold text-[color:var(--muted)] uppercase tracking-wide mb-1">Path diagram</h5>
-            <PathDiagram
-              x={x ? variableLabel(x, questions) : "X"}
-              m={m ? variableLabel(m, questions) : "M"}
-              y={y ? variableLabel(y, questions) : "Y"}
-              a={{ label: "a", coef: result.res.aPath.beta, p: result.res.aPath.p }}
-              b={{ label: "b", coef: result.res.bPath.beta, p: result.res.bPath.p }}
-              c={{ label: "c", coef: result.res.cPath.beta, p: result.res.cPath.p }}
-              cPrime={{ label: "c'", coef: result.res.cPrimePath.beta, p: result.res.cPrimePath.p }}
-              indirect={{
-                value: result.res.indirect,
-                significant: (result.res.bootstrap?.ciLower ?? 0) * (result.res.bootstrap?.ciUpper ?? 0) > 0,
-              }}
-            />
+            <ChartDownload filename="mediation_path">
+              <PathDiagram
+                x={x ? variableLabel(x, questions) : "X"}
+                m={m ? variableLabel(m, questions) : "M"}
+                y={y ? variableLabel(y, questions) : "Y"}
+                a={{ label: "a", coef: result.res.aPath.beta, p: result.res.aPath.p }}
+                b={{ label: "b", coef: result.res.bPath.beta, p: result.res.bPath.p }}
+                c={{ label: "c", coef: result.res.cPath.beta, p: result.res.cPath.p }}
+                cPrime={{ label: "c'", coef: result.res.cPrimePath.beta, p: result.res.cPrimePath.p }}
+                indirect={{
+                  value: result.res.indirect,
+                  significant: (result.res.bootstrap?.ciLower ?? 0) * (result.res.bootstrap?.ciUpper ?? 0) > 0,
+                }}
+              />
+            </ChartDownload>
           </div>
           <div>
             <h5 className="text-xs font-semibold text-[color:var(--muted)] uppercase tracking-wide mb-1">Paths</h5>

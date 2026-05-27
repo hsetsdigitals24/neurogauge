@@ -6,6 +6,7 @@ import { VariablePicker } from "../PickSeries";
 import { StatTable, CsvDownload } from "../ResultTable";
 import { Histogram } from "../Histogram";
 import { QQPlot } from "../QQPlot";
+import { ChartDownload } from "../ChartDownload";
 import { useExtract } from "../workspace/WorkspaceProvider";
 
 export function NormalityCard({ sessions, catalog, questions }: {
@@ -36,11 +37,15 @@ export function NormalityCard({ sessions, catalog, questions }: {
           <div className="grid md:grid-cols-2 gap-4">
             <div>
               <h5 className="text-xs font-semibold text-[color:var(--muted)] uppercase tracking-wide mb-1">Histogram</h5>
-              <Histogram bins={bins} />
+              <ChartDownload filename="normality_histogram">
+                <Histogram bins={bins} />
+              </ChartDownload>
             </div>
             <div>
               <h5 className="text-xs font-semibold text-[color:var(--muted)] uppercase tracking-wide mb-1">Q–Q plot (vs Normal)</h5>
-              <QQPlot points={qq} />
+              <ChartDownload filename="normality_qqplot">
+                <QQPlot points={qq} />
+              </ChartDownload>
             </div>
           </div>
           <div className="flex justify-end pt-2">

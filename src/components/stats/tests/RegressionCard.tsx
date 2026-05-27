@@ -9,6 +9,7 @@ import { VariablePicker } from "../PickSeries";
 import { StatTable, CsvDownload } from "../ResultTable";
 import { ScatterPlot } from "../ScatterPlot";
 import { ForestPlot } from "../ForestPlot";
+import { ChartDownload } from "../ChartDownload";
 import { Plus, X } from "lucide-react";
 import { useExtract } from "../workspace/WorkspaceProvider";
 
@@ -119,16 +120,20 @@ export function RegressionCard({ sessions, catalog, questions }: {
               <h5 className="text-xs font-semibold text-[color:var(--muted)] uppercase tracking-wide mb-1">
                 Coefficients ({((1 - alpha) * 100).toFixed(0)}% CI)
               </h5>
-              <ForestPlot
-                rows={result.reg.coefficients.filter((c) => c.name !== "(Intercept)").map((c) => ({
-                  name: c.name, value: c.beta, ciLow: c.ciLower, ciHigh: c.ciUpper, significant: c.pValue < 0.05,
-                }))}
-                refValue={0} xLabel="β"
-              />
+              <ChartDownload filename="regression_forest">
+                <ForestPlot
+                  rows={result.reg.coefficients.filter((c) => c.name !== "(Intercept)").map((c) => ({
+                    name: c.name, value: c.beta, ciLow: c.ciLower, ciHigh: c.ciUpper, significant: c.pValue < 0.05,
+                  }))}
+                  refValue={0} xLabel="β"
+                />
+              </ChartDownload>
             </div>
             <div>
               <h5 className="text-xs font-semibold text-[color:var(--muted)] uppercase tracking-wide mb-1">Residuals vs Fitted</h5>
-              <ScatterPlot x={result.reg.fitted} y={result.reg.residuals} xLabel="Fitted" yLabel="Residual" showLine={false} />
+              <ChartDownload filename="regression_scatter">
+                <ScatterPlot x={result.reg.fitted} y={result.reg.residuals} xLabel="Fitted" yLabel="Residual" showLine={false} />
+              </ChartDownload>
             </div>
           </div>
           <div className="flex justify-end pt-2">

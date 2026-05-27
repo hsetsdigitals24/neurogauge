@@ -116,6 +116,7 @@ function seedVariables(catalog: VariableCatalog): VariableDef[] {
 // ============================================================================
 
 export interface WorkspaceAPI {
+  projectId: string;
   state: WorkspaceState;
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   sessions: any[];
@@ -289,6 +290,7 @@ export function WorkspaceProvider({
   }, []);
 
   const api: WorkspaceAPI = {
+    projectId: state.projectId,
     state, sessions, questions, catalog,
     variables: state.variables,
     visibleParticipants: visiblePids,

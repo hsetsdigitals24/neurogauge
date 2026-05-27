@@ -413,7 +413,7 @@ export default function ProjectDetailPage() {
                         {(q.type === "mcq-alpha" || q.type === "mcq-roman") && (
                           <textarea className="textarea mt-2" rows={2} placeholder="One option per line" disabled={!isOwner}
                             value={(q.options ?? []).join("\n")}
-                            onChange={(e) => updateQ(q.id, { options: e.target.value.split("\n").filter(Boolean) })} />
+                            onChange={(e) => updateQ(q.id, { options: e.target.value.split("\n") })} />
                         )}
                         {isOwner && (
                           <div className="text-right mt-2">
@@ -469,9 +469,10 @@ export default function ProjectDetailPage() {
             {tab === "analysis" && (
               <div className="card p-8 text-center">
                 <h2 className="text-2xl font-bold">Analysis</h2>
-                <p className="mt-4 text-sm text-[color:var(--muted)]">
+                {/* <p className="mt-4 text-sm text-[color:var(--muted)]">
                   Analytics are coming soon. Check back later for project insights and reports.
-                </p>
+                </p> */}
+                <Link href={`/dashboard/projects/${id}/analytics`} className="text-gray py-2 px-4 mt-4 rounded">Open Analytics Tools</Link>                
               </div>
             )}
 

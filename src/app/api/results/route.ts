@@ -19,5 +19,18 @@ export async function GET(req: Request) {
     },
   });
 
-  return NextResponse.json(sessions);
+  // Dedupe: collapse sessions that share (projectId, finishedAt rounded to minute),
+  // keeping the most recently created (already sorted desc).
+  const seen = new Set<string>();
+  type S = { id: string; projectId: string; finishedAt: Date | null; startedAt: Date };
+  const deduped = (sessions as S[]).filter((s) => {
+    const stamp = s.finishedAt ?? s.startedAt;
+    const bucket = stamp ? Math.floor(new Date(stamp).getTime() / 60000) : `id-${s.id}`;
+    const key = `${s.projectId}:${bucket}`;
+    if (seen.has(key)) return false;
+    seen.add(key);
+    return true;
+  });
+
+  return NextResponse.json(deduped);
 }

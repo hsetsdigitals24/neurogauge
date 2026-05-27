@@ -2,11 +2,14 @@ import { NextResponse } from "next/server";
 import type { NextRequest } from "next/server";
 import { jwtVerify } from "jose";
 
+if (process.env.NODE_ENV === "production" && !process.env.JWT_SECRET) {
+  throw new Error("JWT_SECRET environment variable must be set in production");
+}
 const SECRET = new TextEncoder().encode(
   process.env.JWT_SECRET ?? "neurogauge-dev-secret-change-in-production"
 );
 
-const PROTECTED = ["/dashboard"];
+const PROTECTED = ["/dashboard", "/admin"];
 const AUTH_PAGES = ["/auth/login", "/auth/signup"];
 
 export async function middleware(request: NextRequest) {
@@ -40,5 +43,5 @@ export async function middleware(request: NextRequest) {
 }
 
 export const config = {
-  matcher: ["/dashboard/:path*", "/auth/:path*"],
+  matcher: ["/dashboard/:path*", "/auth/:path*", "/admin/:path*"],
 };

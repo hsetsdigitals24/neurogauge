@@ -10,6 +10,7 @@ import { VariablePicker, CategoricalPicker } from "../PickSeries";
 import { StatTable, CsvDownload } from "../ResultTable";
 import { BoxPlot } from "../BoxPlot";
 import { BarChart } from "../BarChart";
+import { ChartDownload } from "../ChartDownload";
 import { useExtract } from "../workspace/WorkspaceProvider";
 
 const PALETTE = ["#6366f1", "#10b981", "#f59e0b", "#ef4444", "#8b5cf6", "#06b6d4"];
@@ -93,17 +94,21 @@ export function AnovaCard({ sessions, catalog, questions }: {
           <div className="grid md:grid-cols-2 gap-4">
             <div>
               <h5 className="text-xs font-semibold text-[color:var(--muted)] uppercase tracking-wide mb-1">Group distributions</h5>
-              <BoxPlot groups={result.groups} />
+              <ChartDownload filename="anova_boxplot">
+                <BoxPlot groups={result.groups} />
+              </ChartDownload>
             </div>
             <div>
               <h5 className="text-xs font-semibold text-[color:var(--muted)] uppercase tracking-wide mb-1">Group means (95% CI)</h5>
-              <BarChart bars={result.groups.map((g, i) => {
-                const n = g.values.length;
-                const m = n ? g.values.reduce((s, v) => s + v, 0) / n : 0;
-                const sd = n > 1 ? Math.sqrt(g.values.reduce((s, v) => s + (v - m) ** 2, 0) / (n - 1)) : 0;
-                const moe = 1.96 * sd / Math.sqrt(Math.max(1, n));
-                return { name: g.name, value: m, errLow: m - moe, errHigh: m + moe, color: PALETTE[i % PALETTE.length] };
-              })} />
+              <ChartDownload filename="anova_bars">
+                <BarChart bars={result.groups.map((g, i) => {
+                  const n = g.values.length;
+                  const m = n ? g.values.reduce((s, v) => s + v, 0) / n : 0;
+                  const sd = n > 1 ? Math.sqrt(g.values.reduce((s, v) => s + (v - m) ** 2, 0) / (n - 1)) : 0;
+                  const moe = 1.96 * sd / Math.sqrt(Math.max(1, n));
+                  return { name: g.name, value: m, errLow: m - moe, errHigh: m + moe, color: PALETTE[i % PALETTE.length] };
+                })} />
+              </ChartDownload>
             </div>
           </div>
           {result.pairs.length > 0 && (

@@ -8,6 +8,7 @@ import { CustomQuestion } from "@/lib/types";
 import { CategoricalPicker } from "../PickSeries";
 import { StatTable, CsvDownload } from "../ResultTable";
 import { HeatMap } from "../HeatMap";
+import { ChartDownload } from "../ChartDownload";
 import { useExtract } from "../workspace/WorkspaceProvider";
 
 export function ChiSquareCard({ sessions, catalog, questions }: {
@@ -69,18 +70,22 @@ export function ChiSquareCard({ sessions, catalog, questions }: {
           <div className="grid md:grid-cols-2 gap-4">
             <div>
               <h5 className="text-xs font-semibold text-[color:var(--muted)] uppercase tracking-wide mb-1">Observed counts</h5>
-              <HeatMap matrix={result.observed} rowLabels={result.rowLabels ?? []} colLabels={result.colLabels ?? []}
-                valueFormat={(v) => v.toString()} />
+              <ChartDownload filename="chisquare_observed">
+                <HeatMap matrix={result.observed} rowLabels={result.rowLabels ?? []} colLabels={result.colLabels ?? []}
+                  valueFormat={(v) => v.toString()} />
+              </ChartDownload>
             </div>
             <div>
               <h5 className="text-xs font-semibold text-[color:var(--muted)] uppercase tracking-wide mb-1">Std. residuals (O−E)/√E</h5>
-              <HeatMap
-                matrix={result.observed.map((row, i) => row.map((v, j) => {
-                  const e = result.expected[i][j];
-                  return e > 0 ? (v - e) / Math.sqrt(e) : 0;
-                }))}
-                rowLabels={result.rowLabels ?? []} colLabels={result.colLabels ?? []}
-                valueFormat={(v) => v.toFixed(2)} />
+              <ChartDownload filename="chisquare_residuals">
+                <HeatMap
+                  matrix={result.observed.map((row, i) => row.map((v, j) => {
+                    const e = result.expected[i][j];
+                    return e > 0 ? (v - e) / Math.sqrt(e) : 0;
+                  }))}
+                  rowLabels={result.rowLabels ?? []} colLabels={result.colLabels ?? []}
+                  valueFormat={(v) => v.toFixed(2)} />
+              </ChartDownload>
             </div>
           </div>
           <StatTable rows={[

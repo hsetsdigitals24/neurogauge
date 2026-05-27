@@ -61,6 +61,12 @@ export default function PublicTestPage() {
   const [customAnswers, setCustomAnswers] = useState<Record<string, string>>({});
   const [saveStatus, setSaveStatus] = useState<"idle" | "saving" | "saved" | "error">("idle");
   const [savedSessionId, setSavedSessionId] = useState<string | null>(null);
+  const submitGuardRef = useRef(false);
+  const [clientSubmissionId] = useState(() =>
+    (typeof crypto !== "undefined" && "randomUUID" in crypto)
+      ? crypto.randomUUID()
+      : `csid-${Date.now()}-${Math.random().toString(36).slice(2)}`
+  );
 
   /* Load project config */
   useEffect(() => {
@@ -106,6 +112,8 @@ export default function PublicTestPage() {
   };
 
   const completeSession = async (gtlx: TLXResponse, answers: Record<string, string>) => {
+    if (submitGuardRef.current) return;
+    submitGuardRef.current = true;
     setStep({ kind: "done" });
     setSaveStatus("saving");
     const session: Session & { takerEmail: string; takerAge: string; takerHandedness: string; takerEducation: string } = {
@@ -127,7 +135,11 @@ export default function PublicTestPage() {
       const res = await fetch(`/api/public/${shareToken}/sessions`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ ...session, consentGiven: consent?.consented ?? false }),
+        body: JSON.stringify({
+          ...session,
+          consentGiven: consent?.consented ?? false,
+          clientSubmissionId,
+        }),
       });
       if (res.ok) {
         const data = await res.json();
@@ -135,9 +147,11 @@ export default function PublicTestPage() {
         setSaveStatus("saved");
       } else {
         setSaveStatus("error");
+        submitGuardRef.current = false;
       }
     } catch {
       setSaveStatus("error");
+      submitGuardRef.current = false;
     }
   };
 

@@ -9,6 +9,7 @@ import { VariablePicker, CategoricalPicker } from "../PickSeries";
 import { StatTable, CsvDownload } from "../ResultTable";
 import { BoxPlot } from "../BoxPlot";
 import { BarChart } from "../BarChart";
+import { ChartDownload } from "../ChartDownload";
 import { useExtract } from "../workspace/WorkspaceProvider";
 
 type Mode = "one-sample" | "independent" | "paired";
@@ -170,13 +171,17 @@ export function TTestCard({ sessions, catalog, questions }: {
             <div className="grid md:grid-cols-2 gap-4">
               <div>
                 <h5 className="text-xs font-semibold text-[color:var(--muted)] uppercase tracking-wide mb-1">Distribution</h5>
-                {chartData.kind === "one"
-                  ? <BoxPlot groups={[{ name: chartData.name, values: chartData.values }]} />
-                  : <BoxPlot groups={chartData.groups} />}
+                <ChartDownload filename="ttest_boxplot">
+                  {chartData.kind === "one"
+                    ? <BoxPlot groups={[{ name: chartData.name, values: chartData.values }]} />
+                    : <BoxPlot groups={chartData.groups} />}
+                </ChartDownload>
               </div>
               <div>
                 <h5 className="text-xs font-semibold text-[color:var(--muted)] uppercase tracking-wide mb-1">Means with {((1 - alpha) * 100).toFixed(0)}% CI</h5>
-                <BarChart bars={meanBars(chartData)} />
+                <ChartDownload filename="ttest_bars">
+                  <BarChart bars={meanBars(chartData)} />
+                </ChartDownload>
               </div>
             </div>
           )}

@@ -8,6 +8,7 @@ import { CustomQuestion } from "@/lib/types";
 import { VariablePicker, CategoricalPicker } from "../PickSeries";
 import { StatTable, CsvDownload } from "../ResultTable";
 import { ROCPlot } from "../ROCPlot";
+import { ChartDownload } from "../ChartDownload";
 import { useExtract } from "../workspace/WorkspaceProvider";
 
 export function RocCard({ sessions, catalog, questions }: {
@@ -68,7 +69,9 @@ export function RocCard({ sessions, catalog, questions }: {
               { label: "Specificity @ optimal", value: fmt(result.res.optimal.specificity, 3) },
               { label: "Youden's J", value: fmt(result.res.optimal.youden, 3) },
             ]} />
-            <ROCPlot points={result.res.points} auc={result.res.auc} />
+            <ChartDownload filename="roc_curve">
+              <ROCPlot points={result.res.points} auc={result.res.auc} />
+            </ChartDownload>
           </div>
           <div className="flex justify-end pt-2">
             <CsvDownload filename="roc.csv" rows={[

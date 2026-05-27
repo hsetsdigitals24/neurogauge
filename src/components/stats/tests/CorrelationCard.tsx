@@ -8,6 +8,7 @@ import { CustomQuestion } from "@/lib/types";
 import { VariablePicker } from "../PickSeries";
 import { StatTable, CsvDownload } from "../ResultTable";
 import { ScatterPlot } from "../ScatterPlot";
+import { ChartDownload } from "../ChartDownload";
 import { useExtract } from "../workspace/WorkspaceProvider";
 
 export function CorrelationCard({ sessions, catalog, questions }: {
@@ -63,8 +64,10 @@ export function CorrelationCard({ sessions, catalog, questions }: {
           </div>
           <div>
             <h5 className="text-xs font-semibold text-[color:var(--muted)] uppercase tracking-wide mb-1">Scatter</h5>
-            <ScatterPlot x={data.x} y={data.y}
-              xLabel={vx ? variableLabel(vx, questions) : "X"} yLabel={vy ? variableLabel(vy, questions) : "Y"} />
+            <ChartDownload filename="correlation_scatter">
+              <ScatterPlot x={data.x} y={data.y}
+                xLabel={vx ? variableLabel(vx, questions) : "X"} yLabel={vy ? variableLabel(vy, questions) : "Y"} />
+            </ChartDownload>
           </div>
           <div className="flex justify-end pt-2">
             <CsvDownload filename="correlation.csv" rows={[

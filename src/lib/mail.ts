@@ -76,3 +76,38 @@ If you did not request this, you can safely ignore this email.
 
   return { html, text };
 }
+
+export function collaboratorInviteEmail(inviteUrl: string, projectName: string, inviterName: string) {
+  const safeInviter = inviterName || "A Neurogauge user";
+  const safeProject = projectName || "a project";
+  const text = `Hi,
+
+${safeInviter} invited you to collaborate on "${safeProject}" in Neurogauge.
+
+Open this link to accept the invitation:
+${inviteUrl}
+
+If you didn't expect this, you can ignore this email.
+
+— Neurogauge`;
+
+  const html = `<!doctype html>
+<html>
+  <body style="font-family: -apple-system, Segoe UI, Roboto, sans-serif; background:#f6f7fb; padding:24px; color:#0f172a;">
+    <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="max-width:520px;margin:0 auto;background:#fff;border-radius:12px;padding:32px;border:1px solid #e5e7eb;">
+      <tr><td>
+        <h2 style="margin:0 0 12px;font-size:20px;">You've been invited to collaborate</h2>
+        <p style="margin:0 0 16px;"><strong>${safeInviter}</strong> invited you to collaborate on <strong>${safeProject}</strong> in Neurogauge.</p>
+        <p style="margin:0 0 24px;">
+          <a href="${inviteUrl}" style="display:inline-block;background:#4f46e5;color:#fff;text-decoration:none;padding:12px 20px;border-radius:8px;font-weight:600;">Accept invitation</a>
+        </p>
+        <p style="margin:0 0 8px;font-size:13px;color:#64748b;">Or paste this link into your browser:</p>
+        <p style="margin:0 0 24px;font-size:13px;word-break:break-all;"><a href="${inviteUrl}" style="color:#4f46e5;">${inviteUrl}</a></p>
+        <p style="margin:0;font-size:13px;color:#64748b;">If you didn't expect this, you can ignore this email.</p>
+      </td></tr>
+    </table>
+  </body>
+</html>`;
+
+  return { html, text };
+}

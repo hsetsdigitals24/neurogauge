@@ -77,8 +77,16 @@ export default function TestPage() {
   };
 
   const [saveStatus, setSaveStatus] = useState<"idle" | "saving" | "saved" | "error">("idle");
+  const submitGuardRef = useRef(false);
+  const [clientSubmissionId] = useState(() =>
+    (typeof crypto !== "undefined" && "randomUUID" in crypto)
+      ? crypto.randomUUID()
+      : `csid-${Date.now()}-${Math.random().toString(36).slice(2)}`
+  );
 
   const completeSession = async (gtlx: TLXResponse, answers: Record<string, string>) => {
+    if (submitGuardRef.current) return;
+    submitGuardRef.current = true;
     const session: Session = {
       participantId,
       startedAt: consent?.ts ?? Date.now(),
@@ -97,11 +105,13 @@ export default function TestPage() {
       const res = await fetch("/api/sessions", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(session),
+        body: JSON.stringify({ ...session, clientSubmissionId }),
       });
-      setSaveStatus(res.ok ? "saved" : "error");
+      if (res.ok) setSaveStatus("saved");
+      else { setSaveStatus("error"); submitGuardRef.current = false; }
     } catch {
       setSaveStatus("error");
+      submitGuardRef.current = false;
     }
   };
 
@@ -504,7 +514,7 @@ function CustomQuestionsScreen({
             )}
             {(q.type === "mcq-alpha" || q.type === "mcq-roman") && (
               <div className="space-y-2">
-                {(q.options ?? []).map((o, i) => {
+                {(q.options ?? []).filter(Boolean).map((o, i) => {
                   const label = q.type === "mcq-alpha" ? alpha[i] : roman[i];
                   const id = `${label}. ${o}`;
                   return (

@@ -1,0 +1,9 @@
+services:
+  analytics:
+    build: ./analytics
+    container_name: neurogauge-analytics
+    ports:
+      - "8000:8000"
+    environment:
+      ANALYTICS_SHARED_SECRET: ${ANALYTICS_SHARED_SECRET:-dev-secret-change-me}
+    restart: unless-stopped

@@ -3,11 +3,19 @@ import { useState } from "react";
 import { useWorkspace } from "./WorkspaceProvider";
 import { Filter, Plus, X } from "lucide-react";
 import { FilterOp } from "@/lib/stats";
+import { useWorkbenchOptional } from "@/contexts/WorkbenchContext";
 
 const OPS: FilterOp[] = ["==", "!=", "<", "<=", ">", ">="];
 
+const STIM_LABELS: Record<string, string> = {
+  "letters": "Letters",
+  "shapes": "Shapes",
+  "rotated-e": "Rotated E",
+};
+
 export function FilterBar() {
   const ws = useWorkspace();
+  const wb = useWorkbenchOptional();
   const [adding, setAdding] = useState(false);
   const [variableId, setVariableId] = useState(ws.variables[0]?.id ?? "");
   const [op, setOp] = useState<FilterOp>(">");
@@ -26,7 +34,19 @@ export function FilterBar() {
     <div className="flex items-center gap-2 flex-wrap px-3 py-2 border-b border-[color:var(--border)] bg-gray-50">
       <Filter className="w-3.5 h-3.5 text-[color:var(--muted)]" />
       <span className="text-xs font-semibold text-[color:var(--muted)]">Filter:</span>
-      {ws.state.filter.clauses.length === 0 && (
+      {/* N-back filter chip from workbench context */}
+      {wb?.state.nbackFilter && (
+        <span className="text-xs px-2 py-0.5 rounded-full bg-cyan-50 text-cyan-700 border border-cyan-100 inline-flex items-center gap-1">
+          <span>
+            {wb.state.nbackFilter.stimType ? STIM_LABELS[wb.state.nbackFilter.stimType] ?? wb.state.nbackFilter.stimType : "All"}
+            {wb.state.nbackFilter.level !== null ? ` · ${wb.state.nbackFilter.level}-back` : ""}
+          </span>
+          <button onClick={() => wb.dispatch({ type: "setNBackFilter", filter: null })} className="hover:text-cyan-900">
+            <X className="w-3 h-3" />
+          </button>
+        </span>
+      )}
+      {ws.state.filter.clauses.length === 0 && !wb?.state.nbackFilter && (
         <span className="text-xs text-[color:var(--muted)]">(no filter — all participants)</span>
       )}
       {ws.state.filter.clauses.map((c, i) => (

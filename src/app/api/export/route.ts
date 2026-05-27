@@ -1,4 +1,5 @@
 import { prisma } from "@/lib/prisma";
+import { getSessionUser } from "@/lib/auth";
 import { summarize } from "@/lib/scoring";
 import type { Trial } from "@/lib/types";
 
@@ -9,6 +10,8 @@ function esc(v: unknown): string {
 }
 
 export async function GET(req: Request) {
+  const user = await getSessionUser();
+  if (!user) return new Response("Unauthorized", { status: 401 });
   const { searchParams } = new URL(req.url);
   const format = searchParams.get("format") ?? "long"; // "long" | "wide"
 

@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { getSessionUser } from "@/lib/auth";
 import { summarize } from "@/lib/scoring";
+import { dedupeSessions } from "@/lib/analytics/dataset";
 import type { Trial } from "@/lib/types";
 
 type Ctx = { params: Promise<{ id: string }> };
@@ -42,9 +43,9 @@ export async function GET(req: Request, ctx: Ctx) {
     return NextResponse.json({ error: "Forbidden" }, { status: 403 });
   }
 
-  const sessions = await db.testSession.findMany({
+  const sessionsRaw = await db.testSession.findMany({
     where: { projectId: id },
-    orderBy: { createdAt: "asc" },
+    orderBy: { createdAt: "desc" },
     include: {
       blocks: {
         orderBy: { blockIndex: "asc" },
@@ -52,6 +53,9 @@ export async function GET(req: Request, ctx: Ctx) {
       },
     },
   });
+
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const sessions = dedupeSessions(sessionsRaw as any[]).reverse();
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const customQuestions: { id: string; prompt: string }[] = (
@@ -67,6 +71,8 @@ export async function GET(req: Request, ctx: Ctx) {
   let body: string;
   let filename: string;
 
+  const questionnaireHeaderLabels = customQuestions.map((q) => q.prompt || q.id);
+
   if (format === "wide") {
     const headers = [
       "session_id", "participant_id", "taker_email",
@@ -75,6 +81,7 @@ export async function GET(req: Request, ctx: Ctx) {
       "d_prime", "criterion", "rt_mean_ms", "rt_median_ms", "rt_sd_ms",
       "level_mental", "level_physical", "level_temporal", "level_performance",
       "level_effort", "level_frustration", "level_paas",
+      ...questionnaireHeaderLabels,
       "global_mental", "global_physical", "global_temporal", "global_performance",
       "global_effort", "global_frustration", "global_paas",
       "taker_age", "taker_handedness", "taker_education",
@@ -84,6 +91,7 @@ export async function GET(req: Request, ctx: Ctx) {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     for (const s of sessions as any[]) {
       const g = (s.globalTLX as Record<string, number> | null) ?? null;
+      const answers = (s.customAnswers as Record<string, string> | null) ?? {};
       for (const b of s.blocks) {
         const tlx = (b.perLevelTLX as Record<string, number> | null) ?? null;
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -110,6 +118,7 @@ export async function GET(req: Request, ctx: Ctx) {
           m.rtMean?.toFixed(1) ?? "", m.rtMedian?.toFixed(1) ?? "", m.rtSD?.toFixed(1) ?? "",
           tlx?.mentalDemand ?? "", tlx?.physicalDemand ?? "", tlx?.temporalDemand ?? "",
           tlx?.performance ?? "", tlx?.effort ?? "", tlx?.frustration ?? "", tlx?.paasMentalEffort ?? "",
+          ...customQuestions.map((q) => answers[q.id] ?? ""),
           g?.mentalDemand ?? "", g?.physicalDemand ?? "", g?.temporalDemand ?? "",
           g?.performance ?? "", g?.effort ?? "", g?.frustration ?? "", g?.paasMentalEffort ?? "",
           s.takerAge ?? "", s.takerHandedness ?? "", s.takerEducation ?? "",
@@ -128,6 +137,7 @@ export async function GET(req: Request, ctx: Ctx) {
       "correct", "rt_ms", "onset_ts",
       "level_mental", "level_physical", "level_temporal", "level_performance",
       "level_effort", "level_frustration", "level_paas",
+      ...questionnaireHeaderLabels,
       "global_mental", "global_physical", "global_temporal", "global_performance",
       "global_effort", "global_frustration", "global_paas",
       "taker_age", "taker_handedness", "taker_education",
@@ -136,6 +146,7 @@ export async function GET(req: Request, ctx: Ctx) {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     for (const s of sessions as any[]) {
       const g = (s.globalTLX as Record<string, number> | null) ?? null;
+      const answers = (s.customAnswers as Record<string, string> | null) ?? {};
       for (const b of s.blocks) {
         const tlx = (b.perLevelTLX as Record<string, number> | null) ?? null;
         for (const t of b.trials) {
@@ -146,6 +157,7 @@ export async function GET(req: Request, ctx: Ctx) {
             t.correct, t.rtMs, t.onsetTs,
             tlx?.mentalDemand ?? "", tlx?.physicalDemand ?? "", tlx?.temporalDemand ?? "",
             tlx?.performance ?? "", tlx?.effort ?? "", tlx?.frustration ?? "", tlx?.paasMentalEffort ?? "",
+            ...customQuestions.map((q) => answers[q.id] ?? ""),
             g?.mentalDemand ?? "", g?.physicalDemand ?? "", g?.temporalDemand ?? "",
             g?.performance ?? "", g?.effort ?? "", g?.frustration ?? "", g?.paasMentalEffort ?? "",
             s.takerAge ?? "", s.takerHandedness ?? "", s.takerEducation ?? "",
@@ -155,34 +167,6 @@ export async function GET(req: Request, ctx: Ctx) {
     }
     body = rows.join("\n");
     filename = `${slug}_trials_long.csv`;
-  }
-
-  if (customQuestions.length > 0) {
-    const seen = new Set<string>();
-    const answerRows: string[] = [];
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    for (const s of sessions as any[]) {
-      if (seen.has(s.id)) continue;
-      seen.add(s.id);
-      const answers = (s.customAnswers as Record<string, string> | null) ?? {};
-      answerRows.push([
-        s.id,
-        s.participantId,
-        s.takerEmail,
-        s.startedAt ? new Date(s.startedAt).toISOString() : "",
-        s.finishedAt ? new Date(s.finishedAt).toISOString() : "",
-        ...customQuestions.map((q) => answers[q.id] ?? ""),
-      ].map(esc).join(","));
-    }
-
-    if (answerRows.length > 0) {
-      const sectionHeader = [esc("CUSTOM QUESTION ANSWERS")].join(",");
-      const answerHeaders = [
-        "session_id", "participant_id", "taker_email", "started_at", "finished_at",
-        ...customQuestions.map((q) => q.prompt),
-      ].map(esc).join(",");
-      body = body + "\n\n" + sectionHeader + "\n" + answerHeaders + "\n" + answerRows.join("\n");
-    }
   }
 
   return new Response(body, {

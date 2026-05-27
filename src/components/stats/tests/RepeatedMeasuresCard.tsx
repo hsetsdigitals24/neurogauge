@@ -8,6 +8,7 @@ import { CustomQuestion } from "@/lib/types";
 import { VariablePicker } from "../PickSeries";
 import { StatTable, CsvDownload } from "../ResultTable";
 import { LinePlot } from "../LinePlot";
+import { ChartDownload } from "../ChartDownload";
 import { Plus, X } from "lucide-react";
 import { useExtract } from "../workspace/WorkspaceProvider";
 
@@ -95,18 +96,20 @@ export function RepeatedMeasuresCard({ sessions, catalog, questions }: {
             <h5 className="text-xs font-semibold text-[color:var(--muted)] uppercase tracking-wide mb-1">
               Condition means (±1 SE)
             </h5>
-            <LinePlot
-              xAxisCategorical={result.res.conditions}
-              series={[{
-                name: "Mean",
-                points: result.res.conditionMeans.map((c) => {
-                  const sem = c.sd / Math.sqrt(Math.max(1, result.res.n));
-                  return { x: c.name, y: c.mean, errLow: c.mean - sem, errHigh: c.mean + sem };
-                }),
-              }]}
-              xLabel="condition"
-              yLabel="mean"
-            />
+            <ChartDownload filename="rm_anova_plot">
+              <LinePlot
+                xAxisCategorical={result.res.conditions}
+                series={[{
+                  name: "Mean",
+                  points: result.res.conditionMeans.map((c) => {
+                    const sem = c.sd / Math.sqrt(Math.max(1, result.res.n));
+                    return { x: c.name, y: c.mean, errLow: c.mean - sem, errHigh: c.mean + sem };
+                  }),
+                }]}
+                xLabel="condition"
+                yLabel="mean"
+              />
+            </ChartDownload>
           </div>
           <div className="flex justify-end pt-2">
             <CsvDownload filename="rm_anova.csv" rows={[

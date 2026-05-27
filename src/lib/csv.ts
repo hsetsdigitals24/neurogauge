@@ -1,7 +1,7 @@
 import { Session } from "./types";
 import { summarize } from "./scoring";
 
-function csvEscape(v: unknown): string {
+export function csvEscape(v: unknown): string {
   if (v == null) return "";
   const s = String(v);
   return /[",\n]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s;

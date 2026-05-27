@@ -221,7 +221,7 @@ export default function NewProjectPage() {
                 {(q.type === "mcq-alpha" || q.type === "mcq-roman") && (
                   <textarea className="textarea mt-2" rows={2} placeholder="One option per line"
                     value={(q.options ?? []).join("\n")}
-                    onChange={(e) => updateQ(q.id, { options: e.target.value.split("\n").filter(Boolean) })} />
+                    onChange={(e) => updateQ(q.id, { options: e.target.value.split("\n") })} />
                 )}
                 <div className="text-right mt-2">
                   <button className="btn btn-ghost text-xs text-[color:var(--danger)]"
