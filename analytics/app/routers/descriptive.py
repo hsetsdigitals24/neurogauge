@@ -1,0 +1,146 @@
+import time
+from typing import Any
+import numpy as np
+import pandas as pd
+from scipy import stats
+from fastapi import APIRouter, Depends, HTTPException
+
+from app.deps import require_secret
+from app.schemas.common import AnalysisRequest, AnalysisResponse, Meta, PlotSpec, TableBlock
+from app.core.csv_io import df_to_table
+from app.core.plots import boxplot_spec, mean_ci_bar_spec
+from app import VERSION
+
+router = APIRouter(tags=["descriptive"], dependencies=[Depends(require_secret)])
+
+
+def _describe_column(series: pd.Series, ci_level: float) -> dict[str, Any]:
+    arr = pd.to_numeric(series, errors="coerce").dropna().to_numpy(dtype=float)
+    n = int(arr.size)
+    if n == 0:
+        return {
+            "n": 0, "mean": None, "median": None, "mode": None,
+            "sd": None, "se": None, "min": None, "max": None,
+            "ci_low": None, "ci_high": None,
+        }
+
+    mean = float(np.mean(arr))
+    median = float(np.median(arr))
+    try:
+        mode_res = stats.mode(arr, keepdims=False, nan_policy="omit")
+        mode_val = float(mode_res.mode) if mode_res.count > 0 else None
+    except Exception:
+        mode_val = None
+
+    sd = float(np.std(arr, ddof=1)) if n > 1 else 0.0
+    se = sd / np.sqrt(n) if n > 1 else 0.0
+
+    if n > 1 and se > 0:
+        alpha = 1.0 - ci_level
+        t_crit = float(stats.t.ppf(1 - alpha / 2, df=n - 1))
+        ci_low = mean - t_crit * se
+        ci_high = mean + t_crit * se
+    else:
+        ci_low = ci_high = mean
+
+    return {
+        "n": n,
+        "mean": round(mean, 6),
+        "median": round(median, 6),
+        "mode": round(mode_val, 6) if mode_val is not None else None,
+        "sd": round(sd, 6),
+        "se": round(se, 6),
+        "min": float(np.min(arr)),
+        "max": float(np.max(arr)),
+        "ci_low": round(ci_low, 6),
+        "ci_high": round(ci_high, 6),
+    }
+
+
+@router.post("/descriptive", response_model=AnalysisResponse)
+def descriptive(req: AnalysisRequest) -> AnalysisResponse:
+    started = time.perf_counter()
+
+    columns = req.variables.get("columns") or []
+    group_by = req.variables.get("group_by")
+    ci_level = float(req.options.get("ci_level", 0.95))
+    if not (0 < ci_level < 1):
+        raise HTTPException(400, "ci_level must be between 0 and 1")
+    if not columns:
+        raise HTTPException(400, "variables.columns must be a non-empty list")
+
+    df = pd.DataFrame(req.data)
+    if df.empty:
+        raise HTTPException(400, "data is empty")
+    missing = [c for c in columns if c not in df.columns]
+    if missing:
+        raise HTTPException(400, f"columns not found in data: {missing}")
+    if group_by and group_by not in df.columns:
+        raise HTTPException(400, f"group_by '{group_by}' not found in data")
+
+    warnings: list[str] = []
+    rows: list[dict[str, Any]] = []
+    stats_out: dict[str, Any] = {}
+    plots: list[PlotSpec] = []
+    # variable -> { group_label -> raw float values } for plotting
+    series_per_var: dict[str, dict[str, list[float]]] = {}
+
+    def _values(series: pd.Series) -> list[float]:
+        arr = pd.to_numeric(series, errors="coerce").dropna().to_numpy(dtype=float)
+        return arr.tolist()
+
+    if group_by:
+        for col in columns:
+            per_group: dict[str, Any] = {}
+            series_per_var[col] = {}
+            for grp, sub in df.groupby(group_by, dropna=False):
+                label = str(grp)
+                d = _describe_column(sub[col], ci_level)
+                per_group[label] = d
+                rows.append({"variable": col, "group": label, **d})
+                series_per_var[col][label] = _values(sub[col])
+            stats_out[col] = per_group
+    else:
+        for col in columns:
+            d = _describe_column(df[col], ci_level)
+            stats_out[col] = d
+            rows.append({"variable": col, "group": "", **d})
+            series_per_var[col] = {col: _values(df[col])}
+
+    for r in rows:
+        if r["n"] < 3:
+            warnings.append(
+                f"{r['variable']}{('/' + r['group']) if r['group'] else ''}: n={r['n']} — CI not meaningful"
+            )
+
+    # Build plots per variable
+    for col, by_group in series_per_var.items():
+        if not any(len(v) >= 2 for v in by_group.values()):
+            continue
+        plots.append(PlotSpec(
+            type="boxplot",
+            plotly=boxplot_spec(by_group, title=f"Distribution — {col}", y_label=col),
+        ))
+        bar_rows = [
+            r for r in rows
+            if r["variable"] == col and r.get("mean") is not None and r.get("ci_low") is not None
+        ]
+        if bar_rows:
+            plots.append(PlotSpec(
+                type="bar_ci",
+                plotly=mean_ci_bar_spec(bar_rows, title=f"Mean ± CI — {col}", y_label=col),
+            ))
+
+    table_df = pd.DataFrame(rows)
+    if not group_by:
+        table_df = table_df.drop(columns=["group"], errors="ignore")
+    table = df_to_table(table_df)
+
+    duration_ms = int((time.perf_counter() - started) * 1000)
+    return AnalysisResponse(
+        stats=stats_out,
+        table=TableBlock(**table),
+        plots=plots,
+        warnings=warnings,
+        meta=Meta(n=int(len(df)), duration_ms=duration_ms, version=VERSION),
+    )

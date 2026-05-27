@@ -1,0 +1,27 @@
+# Production compose for the analytics service.
+# Run from this directory on the VPS:
+#   docker compose -f docker-compose.prod.yml --env-file .env.production up -d
+#
+# Binds to 127.0.0.1 only — Nginx terminates TLS and proxies to localhost:8000.
+
+services:
+  analytics:
+    build: .
+    image: neurogauge-analytics:latest
+    container_name: neurogauge-analytics
+    restart: unless-stopped
+    ports:
+      - "127.0.0.1:8000:8000"
+    environment:
+      ANALYTICS_SHARED_SECRET: ${ANALYTICS_SHARED_SECRET:?ANALYTICS_SHARED_SECRET must be set}
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "5"
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request, sys; sys.exit(0 if urllib.request.urlopen('http://127.0.0.1:8000/healthz', timeout=3).status == 200 else 1)"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 10s
