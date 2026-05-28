@@ -44,7 +44,7 @@ export function Footer() {
               rel="noreferrer"
               className="font-semibold text-[color:var(--fg)] hover:underline"
             >
-             H-SETS Digital Solutions
+             H-SETS
             </a>
             .
           </p>

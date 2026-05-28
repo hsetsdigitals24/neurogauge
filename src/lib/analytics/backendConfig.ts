@@ -8,7 +8,8 @@ export type FieldDef =
   | { id: string; label: string; type: "column-any-multi"; required: boolean }
   | { id: string; label: string; type: "select"; choices: [string, string][]; default: string }
   | { id: string; label: string; type: "number"; default: number }
-  | { id: string; label: string; type: "text"; default: string }
+  | { id: string; label: string; type: "text"; default: string; placeholder?: string }
+  | { id: string; label: string; type: "textarea"; default: string; placeholder?: string; rows?: number }
   | { id: string; label: string; type: "radio"; choices: [string, string][]; default: string };
 
 export interface BackendAnalysisConfig {
@@ -227,6 +228,56 @@ export const BACKEND_CONFIG: Partial<Record<DialogKey, BackendAnalysisConfig>> =
         ...(v.positive_label ? { positive_label: v.positive_label } : {}),
       },
       options: { alpha: parseFloat(v.alpha as string), n_bootstrap: 500 },
+    }),
+  },
+
+  modelling: {
+    endpoint: "modelling",
+    fields: [
+      {
+        id: "formula",
+        label: "Formula (R-style)",
+        type: "text",
+        default: "",
+        placeholder: "e.g. reaction_time ~ age + group",
+      },
+      {
+        id: "family",
+        label: "Distribution family",
+        type: "select",
+        choices: [
+          ["gaussian", "Gaussian (normal, OLS-equivalent)"],
+          ["poisson", "Poisson (count data)"],
+          ["gamma", "Gamma (positive continuous)"],
+          ["binomial", "Binomial (binary / proportion)"],
+          ["negativebinomial", "Negative binomial (overdispersed counts)"],
+        ],
+        default: "gaussian",
+      },
+      { id: "alpha", label: "α", type: "select", choices: [["0.05", "0.05"], ["0.01", "0.01"], ["0.10", "0.10"]], default: "0.05" },
+    ],
+    toPayload: (v) => ({
+      variables: { formula: v.formula, family: v.family },
+      options: { alpha: parseFloat(v.alpha as string) },
+    }),
+  },
+
+  sem: {
+    endpoint: "sem",
+    fields: [
+      {
+        id: "model",
+        label: "Model syntax (semopy / lavaan)",
+        type: "textarea",
+        default: "",
+        placeholder: "# Measurement model\nconstruct =~ item1 + item2 + item3\n\n# Structural model\noutcome ~ construct + covariate",
+        rows: 8,
+      },
+      { id: "alpha", label: "α", type: "select", choices: [["0.05", "0.05"], ["0.01", "0.01"]], default: "0.05" },
+    ],
+    toPayload: (v) => ({
+      variables: { model: v.model },
+      options: { alpha: parseFloat(v.alpha as string) },
     }),
   },
 };

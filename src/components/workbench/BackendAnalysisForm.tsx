@@ -41,6 +41,8 @@ function initValues(fields: FieldDef[]): Record<string, unknown> {
       v[f.id] = f.default;
     } else if (f.type === "text") {
       v[f.id] = f.default;
+    } else if (f.type === "textarea") {
+      v[f.id] = f.default;
     }
   }
   return v;
@@ -298,6 +300,22 @@ function FieldInput({ field, value, schema, onChange, onToggleMulti }: FieldInpu
           type="text"
           className="input text-xs"
           value={value as string}
+          placeholder={"placeholder" in field ? field.placeholder : undefined}
+          onChange={(e) => onChange(e.target.value)}
+        />
+      </label>
+    );
+  }
+
+  if (field.type === "textarea") {
+    return (
+      <label className="block">
+        {label}
+        <textarea
+          className="input text-xs font-mono resize-y"
+          rows={field.rows ?? 5}
+          value={value as string}
+          placeholder={"placeholder" in field ? field.placeholder : undefined}
           onChange={(e) => onChange(e.target.value)}
         />
       </label>

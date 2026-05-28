@@ -11,8 +11,10 @@ dependencies = [
   "numpy>=2.1",
   "pandas>=2.2",
   "scipy>=1.14",
+  "statsmodels>=0.14",
   "pingouin>=0.5.5",
   "plotly>=5.24",
+  "semopy>=2.3",
 ]
 
 [dependency-groups]

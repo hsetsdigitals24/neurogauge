@@ -23,6 +23,8 @@ import { RepeatedMeasuresCard } from "../tests/RepeatedMeasuresCard";
 import { OmegaCard } from "../tests/OmegaCard";
 import { GrowthCurveCard } from "../tests/GrowthCurveCard";
 import { MediationCard } from "../tests/MediationCard";
+import { ModellingCard } from "../tests/ModellingCard";
+import { SemCard } from "../tests/SemCard";
 
 const TITLE: Record<DialogKey, string> = {
   descriptive: "Descriptives",
@@ -41,6 +43,8 @@ const TITLE: Record<DialogKey, string> = {
   omega: "McDonald's ω",
   growth: "Growth curves",
   mediation: "Mediation analysis",
+  modelling: "Statistical modelling (GLM)",
+  sem: "Structural equation modelling",
 };
 
 export function DialogHost({ dialogKey }: { dialogKey: DialogKey }) {
@@ -118,6 +122,8 @@ export function DialogHost({ dialogKey }: { dialogKey: DialogKey }) {
           {!useBackend && dialogKey === "omega" && <OmegaCard {...cardProps} />}
           {!useBackend && dialogKey === "growth" && <GrowthCurveCard sessions={ws.sessions} />}
           {!useBackend && dialogKey === "mediation" && <MediationCard {...cardProps} />}
+          {!useBackend && dialogKey === "modelling" && <ModellingCard />}
+          {!useBackend && dialogKey === "sem" && <SemCard />}
 
         </div>
       </div>

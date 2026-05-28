@@ -2,8 +2,8 @@ from fastapi import FastAPI
 
 from app import VERSION
 from app.routers import (
-    anova, chi_square, correlation, descriptive, normality,
-    regression, reliability, roc, ttest,
+    anova, chi_square, correlation, descriptive, modelling, normality,
+    regression, reliability, roc, sem, ttest,
 )
 
 app = FastAPI(title="Neurogauge Analytics", version=VERSION)
@@ -23,3 +23,5 @@ app.include_router(anova.router, prefix="/v1")
 app.include_router(regression.router, prefix="/v1")
 app.include_router(reliability.router, prefix="/v1")
 app.include_router(roc.router, prefix="/v1")
+app.include_router(modelling.router, prefix="/v1")
+app.include_router(sem.router, prefix="/v1")
