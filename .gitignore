@@ -40,6 +40,13 @@ yarn-error.log*
 *.tsbuildinfo
 next-env.d.ts
 
+# Python
+__pycache__/
+*.pyc
+*.pyo
+.pytest_cache/
+.venv/
+
 .env
 
 .env*.local

@@ -81,7 +81,7 @@ curl -s http://127.0.0.1:8000/healthz
 
 ```bash
 # Copy the site config, replacing the placeholder with your domain
-sudo sed 's/ANALYTICS_DOMAIN/analytics.example.com/g' \
+sudo sed 's/ANALYTICS_DOMAIN/analytics.learnogauge.com/g' \
   deploy/nginx/analytics.conf \
   | sudo tee /etc/nginx/sites-available/analytics.conf
 sudo ln -sf /etc/nginx/sites-available/analytics.conf /etc/nginx/sites-enabled/
@@ -89,10 +89,10 @@ sudo ln -sf /etc/nginx/sites-available/analytics.conf /etc/nginx/sites-enabled/
 sudo nginx -t && sudo systemctl reload nginx
 
 # Issue the cert (certbot rewrites the file to add the SSL block)
-sudo certbot --nginx -d analytics.example.com
+sudo certbot --nginx -d analytics.learnogauge.com
 
 # Verify externally
-curl -s https://analytics.example.com/healthz
+curl -s https://analytics.learnogauge.com/healthz
 ```
 
 Certbot installs a renewal timer automatically (`systemctl list-timers | grep certbot`).
