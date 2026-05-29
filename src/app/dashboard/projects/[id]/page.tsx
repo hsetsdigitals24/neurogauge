@@ -474,7 +474,8 @@ export default function ProjectDetailPage() {
                   Analytics are coming soon. Check back later for project insights and reports.
                 </p> */}
                 <Link href={`/dashboard/projects/${id}/analytics`} className="text-gray py-2 px-4 mt-4 gradient-text flex align-items justify-content">
-                  Open Analytics Tools <Link2Icon className="w-4 h-4" />
+                  Open Analytics Workbench 
+                  {/* <Link2Icon className="w-4 h-4" /> */}
                 </Link>
               </div>
             )}
