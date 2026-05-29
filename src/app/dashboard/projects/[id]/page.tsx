@@ -468,11 +468,11 @@ export default function ProjectDetailPage() {
             {/* ANALYSIS TAB */}
             {tab === "analysis" && (
               <div className="card p-8 text-center">
-                <h2 className="text-2xl font-bold">Analysis</h2>
+                <h2 className="text-2xl font-bold mb-4">Analysis</h2>
                 {/* <p className="mt-4 text-sm text-[color:var(--muted)]">
                   Analytics are coming soon. Check back later for project insights and reports.
                 </p> */}
-                <Link href={`/dashboard/projects/${id}/analytics`} className="text-gray py-2 px-4 mt-4 rounded">Open Analytics Tools</Link>                
+                <Link href={`/dashboard/projects/${id}/analytics`} className="text-gray py-2 px-4 mt-4 gradient-text">Open Analytics Tools</Link>                
               </div>
             )}
 
