@@ -1,4 +1,4 @@
-it pos# Neurogauge Analytics — Build Plan
+it pos@# Neurogauge Analytics — Build Plan
 
 A Python FastAPI service exposing 13 statistical analyses, called server-to-server from the existing Next.js app. Frontend stays in Next.js; Python is a stateless compute sidecar.
 
