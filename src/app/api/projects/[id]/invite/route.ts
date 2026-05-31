@@ -52,7 +52,14 @@ export async function POST(req: Request, ctx: Ctx) {
         data: { projectId: id, inviteeEmail: email, invitedById: session.userId },
       });
 
-  const inviteLink = `${process.env.NEXT_PUBLIC_BASE_URL ?? ""}/invites/${invite.token}`;
+  const envBase = process.env.NEXT_PUBLIC_BASE_URL?.replace(/\/+$/, "");
+  let origin = envBase;
+  if (!origin) {
+    const host = req.headers.get("x-forwarded-host") ?? req.headers.get("host");
+    const proto = req.headers.get("x-forwarded-proto") ?? "https";
+    origin = host ? `${proto}://${host}` : new URL(req.url).origin;
+  }
+  const inviteLink = `${origin}/invites/${invite.token}`;
 
   let emailSent = false;
   let emailError: string | null = null;
