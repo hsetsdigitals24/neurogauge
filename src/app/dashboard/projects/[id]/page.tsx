@@ -4,7 +4,7 @@ import { useParams, useRouter } from "next/navigation";
 import Link from "next/link";
 import { motion, AnimatePresence } from "framer-motion";
 import {
-  ArrowLeft, Copy, Check, Users, Plus, Trash2,
+  ArrowLeft, Copy, Check, Users, Plus, Trash2, X,
   ChevronDown, ChevronUp, FlaskConical, ExternalLink, Download,
   Link2Icon,
 } from "lucide-react";
@@ -46,7 +46,8 @@ export default function ProjectDetailPage() {
   const [saveStatus, setSaveStatus] = useState<"idle" | "saving" | "saved">("idle");
   const [copied, setCopied] = useState(false);
   const [inviteEmail, setInviteEmail] = useState("");
-  const [inviteStatus, setInviteStatus] = useState<{ link?: string; error?: string } | null>(null);
+  const [inviteStatus, setInviteStatus] = useState<{ link?: string; error?: string; emailSent?: boolean; emailError?: string | null; to?: string; inviteId?: string } | null>(null);
+  const [cancelingInviteId, setCancelingInviteId] = useState<string | null>(null);
   const [inviting, setInviting] = useState(false);
   const [expandedSession, setExpandedSession] = useState<string | null>(null);
 
@@ -101,22 +102,45 @@ export default function ProjectDetailPage() {
   }
 
   async function sendInvite() {
-    if (!inviteEmail.trim()) return;
+    const to = inviteEmail.trim();
+    if (!to) return;
     setInviting(true); setInviteStatus(null);
     const res = await fetch(`/api/projects/${id}/invite`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ email: inviteEmail.trim() }),
+      body: JSON.stringify({ email: to }),
     });
     const data = await res.json();
     if (res.ok) {
-      setInviteStatus({ link: data.inviteLink });
+      setInviteStatus({
+        link: data.inviteLink,
+        emailSent: data.emailSent,
+        emailError: data.emailError,
+        to,
+        inviteId: data.invite?.id,
+      });
       setInviteEmail("");
       load();
     } else {
       setInviteStatus({ error: data.error });
     }
     setInviting(false);
+  }
+
+  async function cancelInvite(inviteId: string, email: string) {
+    if (!confirm(`Cancel invite to ${email}?`)) return;
+    setCancelingInviteId(inviteId);
+    const res = await fetch(`/api/projects/${id}/invite?inviteId=${encodeURIComponent(inviteId)}`, {
+      method: "DELETE",
+    });
+    setCancelingInviteId(null);
+    if (!res.ok) {
+      const data = await res.json().catch(() => ({}));
+      alert(data.error ?? "Failed to cancel invite");
+      return;
+    }
+    if (inviteStatus?.inviteId === inviteId) setInviteStatus(null);
+    load();
   }
 
   function addQuestion() {
@@ -499,9 +523,11 @@ export default function ProjectDetailPage() {
                         {inviting ? "Sending…" : "Send invite"}
                       </button>
                     </div>
-                    {inviteStatus?.link && (
+                    {inviteStatus?.link && inviteStatus.emailSent && (
                       <div className="mt-3 p-3 bg-emerald-50 border border-emerald-200 rounded-lg text-sm">
-                        <p className="font-semibold text-emerald-800 mb-1">✓ Invite created. Share this link:</p>
+                        <p className="font-semibold text-emerald-800 mb-1">
+                          ✓ Invite emailed to {inviteStatus.to}.
+                        </p>
                         <div className="flex gap-2 items-center">
                           <span className="font-mono text-xs text-emerald-700 break-all">{inviteStatus.link}</span>
                           <button className="btn btn-ghost text-xs shrink-0"
@@ -512,6 +538,24 @@ export default function ProjectDetailPage() {
                         <p className="text-xs text-emerald-600 mt-2">
                           The invited person must have (or create) a Neurogauge account to accept.
                         </p>
+                      </div>
+                    )}
+                    {inviteStatus?.link && !inviteStatus.emailSent && (
+                      <div className="mt-3 p-3 bg-amber-50 border border-amber-200 rounded-lg text-sm">
+                        <p className="font-semibold text-amber-800 mb-1">
+                          ⚠ Invite created, but the email could not be sent
+                          {inviteStatus.emailError ? `: ${inviteStatus.emailError}` : "."}
+                        </p>
+                        <p className="text-xs text-amber-700 mb-2">
+                          Copy this link and send it to {inviteStatus.to} manually.
+                        </p>
+                        <div className="flex gap-2 items-center">
+                          <span className="font-mono text-xs text-amber-800 break-all">{inviteStatus.link}</span>
+                          <button className="btn btn-ghost text-xs shrink-0"
+                            onClick={() => navigator.clipboard.writeText(inviteStatus.link!)}>
+                            <Copy className="w-3.5 h-3.5" />
+                          </button>
+                        </div>
                       </div>
                     )}
                     {inviteStatus?.error && (
@@ -551,9 +595,19 @@ export default function ProjectDetailPage() {
                     <h2 className="font-bold text-lg mb-4">Pending invites</h2>
                     <div className="space-y-2">
                       {project.invites.filter((i) => !i.accepted).map((inv) => (
-                        <div key={inv.id} className="flex items-center justify-between p-3 rounded-xl bg-amber-50 border border-amber-200">
-                          <span className="text-sm font-mono">{inv.inviteeEmail}</span>
-                          <span className="text-xs text-amber-700">Pending</span>
+                        <div key={inv.id} className="flex items-center justify-between gap-3 p-3 rounded-xl bg-amber-50 border border-amber-200">
+                          <span className="text-sm font-mono truncate">{inv.inviteeEmail}</span>
+                          <div className="flex items-center gap-3 shrink-0">
+                            <span className="text-xs text-amber-700">Pending</span>
+                            <button
+                              className="btn btn-ghost text-xs text-[color:var(--danger)] flex items-center gap-1"
+                              onClick={() => cancelInvite(inv.id, inv.inviteeEmail)}
+                              disabled={cancelingInviteId === inv.id}
+                            >
+                              <X className="w-3.5 h-3.5" />
+                              {cancelingInviteId === inv.id ? "Canceling…" : "Cancel"}
+                            </button>
+                          </div>
                         </div>
                       ))}
                     </div>

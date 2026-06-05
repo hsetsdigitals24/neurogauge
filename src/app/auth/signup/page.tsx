@@ -1,12 +1,15 @@
 "use client";
 import { useState } from "react";
 import Link from "next/link";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import { motion } from "framer-motion"; 
 import Image from "next/image";
 
 export default function SignupPage() {
   const router = useRouter();
+  const params = useSearchParams();
+  const nextParam = params.get("next");
+  const next = nextParam && nextParam.startsWith("/") && !nextParam.startsWith("//") ? nextParam : "/dashboard";
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -26,7 +29,7 @@ export default function SignupPage() {
       });
       const data = await res.json();
       if (!res.ok) { setError(data.error ?? "Signup failed"); return; }
-      router.push("/dashboard");
+      router.push(next);
     } catch {
       setError("Network error");
     } finally {

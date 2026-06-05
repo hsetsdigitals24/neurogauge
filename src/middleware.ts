@@ -34,9 +34,9 @@ export async function middleware(request: NextRequest) {
   }
 
   if (isAuthPage && valid) {
-    const url = request.nextUrl.clone();
-    url.pathname = "/dashboard";
-    return NextResponse.redirect(url);
+    const next = request.nextUrl.searchParams.get("next");
+    const safeNext = next && next.startsWith("/") && !next.startsWith("//") ? next : "/dashboard";
+    return NextResponse.redirect(new URL(safeNext, request.url));
   }
 
   return NextResponse.next();

@@ -77,11 +77,45 @@ export async function POST(req: Request, ctx: Ctx) {
     });
     emailSent = true;
   } catch (e: unknown) {
-    emailError = (e as { message?: string })?.message ?? "Failed to send invite email";
-    console.error("Invite email failed:", emailError);
+    const rawMessage = (e as { message?: string })?.message ?? "Failed to send invite email";
+    console.error("Invite email failed:", rawMessage);
+    if (rawMessage.startsWith("SMTP not configured")) {
+      emailError = "Email is not configured on this server.";
+    } else {
+      emailError = rawMessage.split("\n")[0].slice(0, 200);
+    }
   }
 
   return NextResponse.json({ invite, inviteLink, emailSent, emailError });
+}
+
+export async function DELETE(req: Request, ctx: Ctx) {
+  const session = await getSessionUser();
+  if (!session) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+
+  const { id } = await ctx.params;
+  const inviteId = new URL(req.url).searchParams.get("inviteId");
+  if (!inviteId) return NextResponse.json({ error: "inviteId required" }, { status: 400 });
+
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const db = prisma as any;
+
+  const project = await db.project.findUnique({ where: { id }, select: { ownerId: true } });
+  if (!project) return NextResponse.json({ error: "Not found" }, { status: 404 });
+  if (project.ownerId !== session.userId) {
+    return NextResponse.json({ error: "Only owners can cancel invites" }, { status: 403 });
+  }
+
+  const invite = await db.collaboratorInvite.findUnique({ where: { id: inviteId } });
+  if (!invite || invite.projectId !== id) {
+    return NextResponse.json({ error: "Invite not found" }, { status: 404 });
+  }
+  if (invite.accepted) {
+    return NextResponse.json({ error: "Invite already accepted" }, { status: 409 });
+  }
+
+  await db.collaboratorInvite.delete({ where: { id: inviteId } });
+  return NextResponse.json({ ok: true });
 }
 
 export async function GET(_req: Request, ctx: Ctx) {
