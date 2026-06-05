@@ -1,11 +1,11 @@
 "use client";
-import { useState } from "react";
+import { useState, Suspense } from "react";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
-import { motion } from "framer-motion"; 
+import { motion } from "framer-motion";
 import Image from "next/image";
 
-export default function SignupPage() {
+function SignupForm() {
   const router = useRouter();
   const params = useSearchParams();
   const nextParam = params.get("next");
@@ -38,6 +38,38 @@ export default function SignupPage() {
   }
 
   return (
+    <form onSubmit={submit} className="space-y-4">
+      <div>
+        <label className="label">Full name</label>
+        <input className="input" required autoComplete="name"
+          value={name} onChange={(e) => setName(e.target.value)} />
+      </div>
+      <div>
+        <label className="label">Email</label>
+        <input className="input" type="email" required autoComplete="email"
+          value={email} onChange={(e) => setEmail(e.target.value)} />
+      </div>
+      <div>
+        <label className="label">Password <span className="font-normal text-[color:var(--muted)]">(min 8 characters)</span></label>
+        <input className="input" type="password" required autoComplete="new-password"
+          value={password} onChange={(e) => setPassword(e.target.value)} />
+      </div>
+      {error && <p className="text-sm text-[color:var(--danger)]">{error}</p>}
+      <button className="btn btn-primary w-full" type="submit" disabled={loading}>
+        {loading ? "Creating account…" : "Create account"}
+      </button>
+      <p className="text-sm text-center text-[color:var(--muted)]">
+        Already have an account?{" "}
+        <Link href="/auth/login" className="text-[color:var(--primary)] font-semibold hover:underline">
+          Sign in
+        </Link>
+      </p>
+    </form>
+  );
+}
+
+export default function SignupPage() {
+  return (
     <main className="min-h-screen flex items-center justify-center px-4">
       <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} className="w-full max-w-md">
         <Link href="/" className="flex items-center gap-3 mb-8 justify-center">
@@ -58,33 +90,9 @@ export default function SignupPage() {
           <p className="text-sm text-[color:var(--muted)] mb-6">
             For researchers who want to run and manage N-back studies.
           </p>
-          <form onSubmit={submit} className="space-y-4">
-            <div>
-              <label className="label">Full name</label>
-              <input className="input" required autoComplete="name"
-                value={name} onChange={(e) => setName(e.target.value)} />
-            </div>
-            <div>
-              <label className="label">Email</label>
-              <input className="input" type="email" required autoComplete="email"
-                value={email} onChange={(e) => setEmail(e.target.value)} />
-            </div>
-            <div>
-              <label className="label">Password <span className="font-normal text-[color:var(--muted)]">(min 8 characters)</span></label>
-              <input className="input" type="password" required autoComplete="new-password"
-                value={password} onChange={(e) => setPassword(e.target.value)} />
-            </div>
-            {error && <p className="text-sm text-[color:var(--danger)]">{error}</p>}
-            <button className="btn btn-primary w-full" type="submit" disabled={loading}>
-              {loading ? "Creating account…" : "Create account"}
-            </button>
-            <p className="text-sm text-center text-[color:var(--muted)]">
-              Already have an account?{" "}
-              <Link href="/auth/login" className="text-[color:var(--primary)] font-semibold hover:underline">
-                Sign in
-              </Link>
-            </p>
-          </form>
+          <Suspense>
+            <SignupForm />
+          </Suspense>
         </div>
       </motion.div>
     </main>
