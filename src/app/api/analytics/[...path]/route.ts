@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import { createHash } from "crypto";
 import { prisma } from "@/lib/prisma";
 import { getSessionUser } from "@/lib/auth";
-import { loadProjectDataset } from "@/lib/analytics/dataset";
+import { loadProjectDataset, referencedColumns, TRIAL_COLUMNS } from "@/lib/analytics/dataset";
 
 type Ctx = { params: Promise<{ path: string[] }> };
 
@@ -49,13 +49,27 @@ export async function POST(req: Request, ctx: Ctx) {
     || project.collaborators.some((c: { userId: string }) => c.userId === user.userId);
   if (!ok) return NextResponse.json({ error: "Forbidden" }, { status: 403 });
 
-  // Rebuild the dataset server-side so the browser never has to upload it (avoids
-  // nginx 413s on large projects). includeTrials defaults to true, matching the
-  // dataset the workbench form loads for its column dropdowns.
-  const dataset = await loadProjectDataset(projectId, { includeTrials: includeTrials ?? true });
+  // Rebuild the dataset server-side, but keep the upstream payload small: the
+  // analytics VPS has limited RAM and a 50 MB nginx body cap. Trial-level rows
+  // (one per trial × 30+ cols) only matter when the analysis references a
+  // trial-level column; otherwise build block-level (one row per block). Then
+  // project each row down to just the columns this analysis actually uses.
+  const vars = variables ?? {};
+  const needsTrials = includeTrials ?? referencedColumns(vars, TRIAL_COLUMNS).size > 0;
+
+  const dataset = await loadProjectDataset(projectId, { includeTrials: needsTrials });
   if (!dataset) return NextResponse.json({ error: "Project not found" }, { status: 404 });
 
-  const upstreamPayload = { data: dataset.rows, variables: variables ?? {}, options: options ?? {} };
+  const cols = referencedColumns(vars, new Set(Object.keys(dataset.schema)));
+  const data = cols.size > 0
+    ? dataset.rows.map((r) => {
+        const projected: Record<string, unknown> = {};
+        for (const c of cols) projected[c] = r[c] ?? null;
+        return projected;
+      })
+    : dataset.rows;
+
+  const upstreamPayload = { data, variables: vars, options: options ?? {} };
   const paramsHash = createHash("sha256")
     .update(JSON.stringify(upstreamPayload))
     .digest("hex");

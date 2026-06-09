@@ -62,6 +62,34 @@ interface BuildOpts {
   includeTrials?: boolean;
 }
 
+/** Columns that only exist on trial-level rows. If an analysis references none of
+ *  these, the dataset can be built block-level (one row per block) — vastly smaller. */
+export const TRIAL_COLUMNS = new Set(["trial_index", "is_priming", "rt_ms", "correct"]);
+
+/**
+ * Walks an analysis `variables` object and returns the subset of `available`
+ * column names it references. Handles plain column refs, arrays of refs, and
+ * free-text formula/model strings (tokenised on non-word chars, so
+ * `"rt_ms ~ age + level"` yields `rt_ms`, `age`, `level`). Values that aren't
+ * column names (e.g. "two-sided", "pearson") simply don't match and are ignored.
+ */
+export function referencedColumns(variables: unknown, available: Set<string>): Set<string> {
+  const found = new Set<string>();
+  const visit = (val: unknown) => {
+    if (typeof val === "string") {
+      for (const tok of val.split(/[^\w]+/)) {
+        if (tok && available.has(tok)) found.add(tok);
+      }
+    } else if (Array.isArray(val)) {
+      val.forEach(visit);
+    } else if (val && typeof val === "object") {
+      Object.values(val).forEach(visit);
+    }
+  };
+  visit(variables);
+  return found;
+}
+
 export function buildLongDataset(
   sessions: AnySession[],
   customQuestions: { id: string; prompt: string }[],
