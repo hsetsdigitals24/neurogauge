@@ -1,0 +1,73 @@
+name: Analytics CI/CD
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'analytics/**'
+      - '.github/workflows/analytics.yml'
+  pull_request:
+    paths:
+      - 'analytics/**'
+      - '.github/workflows/analytics.yml'
+
+# A newer run on the same ref supersedes an in-flight one.
+concurrency:
+  group: analytics-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  test:
+    name: Test (pytest)
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: analytics
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up uv + Python 3.12
+        uses: astral-sh/setup-uv@v5
+        with:
+          python-version: '3.12'
+          enable-cache: true
+
+      - name: Install dependencies
+        run: uv sync
+
+      - name: Run tests
+        run: uv run pytest
+
+  deploy:
+    name: Deploy to VPS
+    needs: test
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    environment: production
+    steps:
+      - name: Deploy over SSH
+        uses: appleboy/ssh-action@v1
+        with:
+          host: ${{ secrets.VPS_HOST }}
+          username: ${{ secrets.VPS_USER }}
+          key: ${{ secrets.VPS_SSH_KEY }}
+          port: ${{ secrets.VPS_PORT || '22' }}
+          envs: VPS_APP_DIR
+          script: |
+            set -euo pipefail
+            cd "$VPS_APP_DIR"
+            git pull --ff-only
+            cd analytics
+            docker compose -f docker-compose.prod.yml --env-file .env.production up -d --build
+            docker image prune -f
+            for i in $(seq 1 10); do
+              if curl -fsS http://127.0.0.1:8000/healthz >/dev/null; then
+                echo "healthy"
+                exit 0
+              fi
+              sleep 3
+            done
+            echo "health check failed"
+            exit 1
+        env:
+          VPS_APP_DIR: ${{ secrets.VPS_APP_DIR }}
