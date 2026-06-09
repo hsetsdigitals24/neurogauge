@@ -77,8 +77,12 @@ export function referencedColumns(variables: unknown, available: Set<string>): S
   const found = new Set<string>();
   const visit = (val: unknown) => {
     if (typeof val === "string") {
-      for (const tok of val.split(/[^\w]+/)) {
-        if (tok && available.has(tok)) found.add(tok);
+      if (available.has(val)) {
+        found.add(val); // exact column name (covers custom_<uuid> whose hyphens break tokenisation)
+      } else {
+        for (const tok of val.split(/[^\w]+/)) { // formula/model strings: "rt_ms ~ age + level"
+          if (tok && available.has(tok)) found.add(tok);
+        }
       }
     } else if (Array.isArray(val)) {
       val.forEach(visit);
