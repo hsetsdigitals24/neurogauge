@@ -1,7 +1,10 @@
 /* Shared analytics dataset helpers. Used by:
  *  - /api/projects/[id]/analytics/dataset  (assembles the long-format payload)
+ *  - /api/analytics/[...path]              (rebuilds the dataset server-side for the proxy)
  *  - /api/projects/[id]/export             (dedupes before CSV)
  */
+
+import { prisma } from "@/lib/prisma";
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 type AnySession = any;
@@ -124,4 +127,49 @@ export function buildLongDataset(
   }
 
   return { rows, schema };
+}
+
+/**
+ * Loads a project's long-format analytics dataset directly from the database.
+ * Server-side only. Shared by the dataset GET route and the analytics proxy so
+ * the browser never has to upload the (potentially huge) row set.
+ *
+ * Returns `null` when the project does not exist.
+ */
+export async function loadProjectDataset(
+  projectId: string,
+  opts: BuildOpts = {}
+): Promise<{ rows: Record<string, unknown>[]; schema: Record<string, ColumnSchema> } | null> {
+  const includeTrials = opts.includeTrials ?? true;
+
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const db = prisma as any;
+
+  const project = await db.project.findUnique({
+    where: { id: projectId },
+    select: { config: true },
+  });
+  if (!project) return null;
+
+  const sessionsRaw = await db.testSession.findMany({
+    where: { projectId },
+    orderBy: { createdAt: "desc" },
+    include: {
+      blocks: {
+        orderBy: { blockIndex: "asc" },
+        include: includeTrials
+          ? { trials: { orderBy: { trialIndex: "asc" } } }
+          : undefined,
+      },
+    },
+  });
+
+  const sessions = dedupeSessions(sessionsRaw as AnySession[]).reverse();
+
+  const customQuestions: { id: string; prompt: string }[] = (
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    ((project.config as any)?.customQuestions ?? []) as any[]
+  ).map((q) => ({ id: String(q.id), prompt: String(q.prompt ?? q.id) }));
+
+  return buildLongDataset(sessions, customQuestions, { includeTrials });
 }

@@ -84,7 +84,6 @@ export function BackendAnalysisForm({ dialogKey, config, projectId, dataRows, sc
     const payload = config.toPayload(values);
     await run(config.endpoint, {
       projectId,
-      data: dataRows,
       variables: payload.variables,
       options: payload.options,
     });

@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { getSessionUser } from "@/lib/auth";
-import { buildLongDataset, dedupeSessions } from "@/lib/analytics/dataset";
+import { loadProjectDataset } from "@/lib/analytics/dataset";
 
 type Ctx = { params: Promise<{ id: string }> };
 
@@ -20,7 +20,6 @@ export async function GET(req: Request, ctx: Ctx) {
     where: { id },
     select: {
       ownerId: true,
-      config: true,
       collaborators: { select: { userId: true } },
     },
   });
@@ -32,28 +31,8 @@ export async function GET(req: Request, ctx: Ctx) {
     return NextResponse.json({ error: "Forbidden" }, { status: 403 });
   }
 
-  const sessionsRaw = await db.testSession.findMany({
-    where: { projectId: id },
-    orderBy: { createdAt: "desc" },
-    include: {
-      blocks: {
-        orderBy: { blockIndex: "asc" },
-        include: includeTrials
-          ? { trials: { orderBy: { trialIndex: "asc" } } }
-          : undefined,
-      },
-    },
-  });
+  const dataset = await loadProjectDataset(id, { includeTrials });
+  if (!dataset) return NextResponse.json({ error: "Not found" }, { status: 404 });
 
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const sessions = dedupeSessions(sessionsRaw as any[]).reverse();
-
-  const customQuestions: { id: string; prompt: string }[] = (
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    ((project.config as any)?.customQuestions ?? []) as any[]
-  ).map((q) => ({ id: String(q.id), prompt: String(q.prompt ?? q.id) }));
-
-  const { rows, schema } = buildLongDataset(sessions, customQuestions, { includeTrials });
-
-  return NextResponse.json({ rows, schema, n: rows.length });
+  return NextResponse.json({ rows: dataset.rows, schema: dataset.schema, n: dataset.rows.length });
 }

@@ -27,9 +27,9 @@ export async function runAnalysis(
   analysisKey: string,
   payload: {
     projectId: string;
-    data: Record<string, unknown>[];
     variables: Record<string, unknown>;
     options?: Record<string, unknown>;
+    includeTrials?: boolean;
   }
 ): Promise<AnalysisResponse> {
   const res = await fetch(`/api/analytics/${analysisKey}`, {
