@@ -497,8 +497,8 @@ export default function ProjectDetailPage() {
                 {/* <p className="mt-4 text-sm text-[color:var(--muted)]">
                   Analytics are coming soon. Check back later for project insights and reports.
                 </p> */}
-                <Link href={`/dashboard/projects/${id}/analytics`} className="w-fit   text-gray py-2 px-4 mt-4 gradient-text flex align-items justify-content">
-                  Open Analytics Workbench 
+                <Link href={`/dashboard/projects/${id}/analytics`} className="w-fit text-gray py-2 px-4 mt-4 flex align-items justify-content">
+                  <button className="btn btn-primary text-white">Open Analytics Workbench </button>
                   {/* <Link2Icon className="w-4 h-4" /> */}
                 </Link>
               </div>
