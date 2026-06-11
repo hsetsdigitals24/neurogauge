@@ -99,7 +99,7 @@ export function DialogHost({ dialogKey }: { dialogKey: DialogKey }) {
             <BackendAnalysisForm
               dialogKey={dialogKey}
               config={backendConfig}
-              projectId={ws.projectId}
+              source={wb.source}
               dataRows={wb.filteredRows}
               schema={wb.state.schema}
             />

@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { motion } from "framer-motion";
 import Image from "next/image";
+import PasswordInput from "@/components/PasswordInput";
 
 function SignupForm() {
   const router = useRouter();
@@ -51,8 +52,7 @@ function SignupForm() {
       </div>
       <div>
         <label className="label">Password <span className="font-normal text-[color:var(--muted)]">(min 8 characters)</span></label>
-        <input className="input" type="password" required autoComplete="new-password"
-          value={password} onChange={(e) => setPassword(e.target.value)} />
+        <PasswordInput value={password} onChange={(e) => setPassword(e.target.value)} autoComplete="new-password" required />
       </div>
       {error && <p className="text-sm text-[color:var(--danger)]">{error}</p>}
       <button className="btn btn-primary w-full" type="submit" disabled={loading}>

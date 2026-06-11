@@ -53,7 +53,7 @@ export default function PublicTestPage() {
   const [projectName, setProjectName] = useState("");
   const [cfg, setCfg] = useState<StudyConfig>(DEFAULT_CONFIG);
   const [step, setStep] = useState<Step>({ kind: "loading" });
-  const [participantId] = useState("P-" + Math.random().toString(36).slice(2, 8).toUpperCase());
+  const [participantId] = useState(() => "P-" + Math.random().toString(36).slice(2, 8).toUpperCase());
   const [takerInfo, setTakerInfo] = useState<TakerInfo>({ email: "", age: "", handedness: "right", education: "" });
   const [consent, setConsent] = useState<ConsentRecord | null>(null);
   const [blocks, setBlocks] = useState<BlockResult[]>([]);
@@ -378,8 +378,8 @@ function TakerInfoScreen({ value, onChange, onNext }: {
             <option value="primary">Primary school</option>
             <option value="secondary">Secondary / high school</option>
             <option value="vocational">Vocational / trade qualification</option>
-            <option value="bachelors">Bachelor's degree</option>
-            <option value="masters">Master's degree</option>
+            <option value="bachelors">Bachelor&apos;s degree</option>
+            <option value="masters">Master&apos;s degree</option>
             <option value="doctorate">Doctorate (PhD)</option>
             <option value="other">Other</option>
           </select>
@@ -427,15 +427,18 @@ function BlockRunner({ cfg, planItem, onFinish }: {
   planItem: { type: StimulusType; level: Level };
   onFinish: (trials: Trial[]) => void;
 }) {
+  // Seed generated once per mount (lazy state initializer keeps the impure call out of render).
+  const [seed] = useState(() => Date.now());
   const seq = useMemo(
-    () => generateSequence(planItem.type, planItem.level, cfg, Date.now()),
+    () => generateSequence(planItem.type, planItem.level, cfg, seed),
     // eslint-disable-next-line react-hooks/exhaustive-deps
     []
   );
   const [idx, setIdx] = useState(0);
   const [phase, setPhase] = useState<"display" | "response">("display");
   const [trials, setTrials] = useState<Trial[]>([]);
-  const onsetRef = useRef<number>(performance.now());
+  // Initialised to 0; set to performance.now() in effects/handlers before it is read.
+  const onsetRef = useRef<number>(0);
   const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const cur = seq[idx];
@@ -464,6 +467,8 @@ function BlockRunner({ cfg, planItem, onFinish }: {
 
   useEffect(() => {
     if (cfg.timingMode === "self") return;
+    // Drives the timed trial state machine (display → response) per trial; intentional.
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     setPhase("display");
     onsetRef.current = performance.now();
     timerRef.current = setTimeout(() => setPhase("response"), cfg.displayMs);

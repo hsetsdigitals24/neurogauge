@@ -47,6 +47,9 @@ export default function TestPage() {
   const [customAnswers, setCustomAnswers] = useState<Record<string, string>>({});
 
   useEffect(() => {
+    // One-time hydrate from localStorage + generate a participant id on mount (effect avoids
+    // SSR/hydration mismatch from localStorage and Math.random()).
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     setCfg(loadConfig());
     setParticipantId("P-" + Math.random().toString(36).slice(2, 8).toUpperCase());
   }, []);

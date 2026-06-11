@@ -104,7 +104,7 @@ export default function AnalyticsPage() {
       {/* Workbench fills remaining height */}
       <div className="flex-1 min-h-0 overflow-hidden">
         <WorkbenchShell
-          projectId={id}
+          source={{ kind: "project", projectId: id }}
           sessions={sessions}
           questions={questions}
           dataset={dataset}

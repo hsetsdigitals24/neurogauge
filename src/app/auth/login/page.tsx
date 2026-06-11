@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { motion } from "framer-motion";
 import Image from "next/image";
+import PasswordInput from "@/components/PasswordInput";
 
 function LoginForm() {
   const router = useRouter();
@@ -49,8 +50,7 @@ function LoginForm() {
             Forgot password?
           </Link>
         </div>
-        <input className="input" type="password" autoComplete="current-password" required
-          value={password} onChange={(e) => setPassword(e.target.value)} />
+        <PasswordInput value={password} onChange={(e) => setPassword(e.target.value)} autoComplete="current-password" required />
       </div>
       {error && <p className="text-sm text-[color:var(--danger)]">{error}</p>}
       <button className="btn btn-primary w-full" type="submit" disabled={loading}>

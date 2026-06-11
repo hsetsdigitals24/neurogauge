@@ -3,11 +3,15 @@ import { createHash } from "crypto";
 import { prisma } from "@/lib/prisma";
 import { getSessionUser } from "@/lib/auth";
 import { loadProjectDataset, referencedColumns, TRIAL_COLUMNS } from "@/lib/analytics/dataset";
+import { resolveDatasetAccess } from "@/lib/analytics/datasetAuth";
+import { loadDatasetRows } from "@/lib/analytics/datasetStore";
+import { applyComputedColumns, type ComputedColumnDef } from "@/lib/analytics/computeColumn";
 
 type Ctx = { params: Promise<{ path: string[] }> };
 
 interface ProxyBody {
   projectId?: string;
+  datasetId?: string;
   variables?: unknown;
   options?: unknown;
   includeTrials?: boolean;
@@ -22,10 +26,10 @@ export async function POST(req: Request, ctx: Ctx) {
   const analysisKey = path.join("/");
 
   const body = (await req.json()) as ProxyBody;
-  const { projectId, variables, options, includeTrials } = body;
+  const { projectId, datasetId, variables, options, includeTrials } = body;
 
-  if (!projectId) {
-    return NextResponse.json({ error: "Missing projectId" }, { status: 400 });
+  if (!projectId && !datasetId) {
+    return NextResponse.json({ error: "Missing projectId or datasetId" }, { status: 400 });
   }
 
   const upstream = process.env.ANALYTICS_URL;
@@ -37,48 +41,81 @@ export async function POST(req: Request, ctx: Ctx) {
     );
   }
 
-  // Authorize project access.
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const db = prisma as any;
-  const project = await db.project.findUnique({
-    where: { id: projectId },
-    select: { ownerId: true, collaborators: { select: { userId: true } } },
-  });
-  if (!project) return NextResponse.json({ error: "Project not found" }, { status: 404 });
-  const ok = project.ownerId === user.userId
-    || project.collaborators.some((c: { userId: string }) => c.userId === user.userId);
-  if (!ok) return NextResponse.json({ error: "Forbidden" }, { status: 403 });
-
-  // Rebuild the dataset server-side, but keep the upstream payload small: the
-  // analytics VPS has limited RAM and a 50 MB nginx body cap. Trial-level rows
-  // (one per trial × 30+ cols) only matter when the analysis references a
-  // trial-level column; otherwise build block-level (one row per block). Then
-  // project each row down to just the columns this analysis actually uses.
   const vars = variables ?? {};
-  const needsTrials = includeTrials ?? referencedColumns(vars, TRIAL_COLUMNS).size > 0;
 
-  const dataset = await loadProjectDataset(projectId, { includeTrials: needsTrials });
-  if (!dataset) return NextResponse.json({ error: "Project not found" }, { status: 404 });
+  // Resolve the source dataset (rows + schema) from either an uploaded Dataset
+  // or a neurogauge Project, then project each row down to just the columns this
+  // analysis references — keeping the upstream payload small (the analytics VPS
+  // has limited RAM and a 50 MB nginx body cap).
+  let rows: Record<string, unknown>[];
+  let schema: Record<string, unknown>;
 
-  const cols = referencedColumns(vars, new Set(Object.keys(dataset.schema)));
+  if (datasetId) {
+    const access = await resolveDatasetAccess<{
+      ownerId: string;
+      projectId: string | null;
+      rows: unknown;
+      rowsBlobUrl: string | null;
+      schema: unknown;
+      computedColumns: unknown;
+    }>(db, datasetId, user.userId, { rows: true, rowsBlobUrl: true, schema: true, computedColumns: true });
+    if (!access.ok) {
+      return NextResponse.json(
+        { error: access.status === 404 ? "Dataset not found" : "Forbidden" },
+        { status: access.status }
+      );
+    }
+    // Rows may be inline or in Blob; blob-backed datasets don't persist
+    // materialised computed columns, so re-apply them from their definitions.
+    rows = await loadDatasetRows(access.dataset);
+    rows = applyComputedColumns(rows, (access.dataset.computedColumns ?? []) as ComputedColumnDef[]);
+    schema = (access.dataset.schema ?? {}) as Record<string, unknown>;
+  } else {
+    // Authorize project access.
+    const project = await db.project.findUnique({
+      where: { id: projectId },
+      select: { ownerId: true, collaborators: { select: { userId: true } } },
+    });
+    if (!project) return NextResponse.json({ error: "Project not found" }, { status: 404 });
+    const ok = project.ownerId === user.userId
+      || project.collaborators.some((c: { userId: string }) => c.userId === user.userId);
+    if (!ok) return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+
+    // Trial-level rows (one per trial × 30+ cols) only matter when the analysis
+    // references a trial-level column; otherwise build block-level (smaller).
+    const needsTrials = includeTrials ?? referencedColumns(vars, TRIAL_COLUMNS).size > 0;
+    const dataset = await loadProjectDataset(projectId!, { includeTrials: needsTrials });
+    if (!dataset) return NextResponse.json({ error: "Project not found" }, { status: 404 });
+    rows = dataset.rows;
+    schema = dataset.schema;
+  }
+
+  const cols = referencedColumns(vars, new Set(Object.keys(schema)));
   const data = cols.size > 0
-    ? dataset.rows.map((r) => {
+    ? rows.map((r) => {
         const projected: Record<string, unknown> = {};
         for (const c of cols) projected[c] = r[c] ?? null;
         return projected;
       })
-    : dataset.rows;
+    : rows;
 
   const upstreamPayload = { data, variables: vars, options: options ?? {} };
   const paramsHash = createHash("sha256")
     .update(JSON.stringify(upstreamPayload))
     .digest("hex");
 
+  // Cache key: AnalysisResult rows belong to either a project or a dataset.
+  const cacheWhere = datasetId
+    ? { datasetId_analysisKey_paramsHash: { datasetId, analysisKey, paramsHash } }
+    : { projectId_analysisKey_paramsHash: { projectId: projectId!, analysisKey, paramsHash } };
+  const cacheCreate = datasetId
+    ? { datasetId, analysisKey, paramsHash }
+    : { projectId, analysisKey, paramsHash };
+
   // Cache lookup
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const cached = await (prisma as any).analysisResult.findUnique({
-    where: { projectId_analysisKey_paramsHash: { projectId, analysisKey, paramsHash } },
-  });
+  const cached = await db.analysisResult.findUnique({ where: cacheWhere });
   if (cached) {
     return NextResponse.json({ ...(cached.result as object), cached: true });
   }
@@ -102,10 +139,9 @@ export async function POST(req: Request, ctx: Ctx) {
 
   const result = JSON.parse(text);
 
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  await (prisma as any).analysisResult.upsert({
-    where: { projectId_analysisKey_paramsHash: { projectId, analysisKey, paramsHash } },
-    create: { projectId, analysisKey, paramsHash, result },
+  await db.analysisResult.upsert({
+    where: cacheWhere,
+    create: { ...cacheCreate, result },
     update: { result, createdAt: new Date() },
   });
 

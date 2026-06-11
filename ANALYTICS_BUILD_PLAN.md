@@ -1,27 +1,48 @@
-it pos@# Neurogauge Analytics — Build Plan
+# Neurogauge Analytics — Build Plan
 
 A Python FastAPI service exposing 13 statistical analyses, called server-to-server from the existing Next.js app. Frontend stays in Next.js; Python is a stateless compute sidecar.
+
+---
+
+## Status (June 2026) — SHIPPED
+
+All four endpoint phases (§5) are **built and in production**. Shipped beyond the original plan:
+
+- **Server-side dataset rebuild + column projection** (§4): the browser never uploads rows; the proxy
+  loads them server-side and forwards only the columns the analysis references. This was the fix for
+  413s / OOM on the small analytics VPS (a 259 MB normality payload became single-digit MB).
+- **Uploaded CSV datasets** (originally out of scope, §13): `Dataset` Prisma model, `/api/datasets`
+  endpoints, a workbench dataset mode at `/dashboard/datasets/[id]/analytics`, inferred + freely editable
+  variable types/labels, row-level computed columns, collaborator access, and dataset-level result caching.
+- **CI/CD**: `.github/workflows/analytics.yml` — pytest then SSH deploy to the VPS on pushes touching
+  `analytics/`.
+
+Remaining backlog (designed, not built): rename column *keys* in the workbench; large-file uploads via
+Vercel Blob (the Vercel function body cap is ~4.5 MB, so big CSVs need client→Blob direct upload).
 
 ---
 
 ## 0. Architecture at a glance
 
 ```
-Browser ──HTTPS──▶ Next.js (existing)
+Browser ──HTTPS──▶ Next.js on Vercel
                      │
-                     │  internal HTTPS + shared-secret header
+                     │  HTTPS + X-Analytics-Key shared-secret header
                      ▼
                   FastAPI analytics service (Python 3.12)
+                  self-hosted VPS · Docker (neurogauge-analytics, 127.0.0.1:8000)
+                  nginx + Let's Encrypt · analytics.learnogauge.com
                      │
                      ├── pingouin / statsmodels / scipy / semopy / sklearn
                      └── matplotlib + plotly (figures)
 
-Postgres (existing) ◀── Next.js writes cached analysis results
+Postgres ◀── Next.js reads project data (TestSession/Block/Trial) and uploaded
+             Datasets; writes cached AnalysisResult rows
 ```
 
 - Python service is **stateless**. It receives a dataset payload, computes, returns JSON. No DB connection in Python.
-- Next.js owns: auth, project access checks, dataset assembly from Prisma, result caching, frontend rendering.
-- Deploy Python on Fly.io / Railway / Render as a single container. One small instance is enough to start.
+- Next.js owns: auth, project/dataset access checks, dataset assembly from Prisma, column projection, result caching, frontend rendering.
+- Python is deployed on a **self-hosted VPS** (1.6 GB RAM — payload size matters; see §4) as a single Docker container behind nginx (`client_max_body_size 50m`).
 
 ---
 
@@ -123,28 +144,34 @@ Lock this contract in a shared TypeScript file (`src/lib/analytics-types.ts`) ge
 
 ---
 
-## 4. Data pipeline (Next.js side)
+## 4. Data pipeline (Next.js side) — as built
 
-Add **one** Next endpoint that flattens Prisma data into tidy long-format JSON the Python service consumes:
+Two data sources feed the same proxy:
 
-```
-GET /api/projects/[id]/analytics/dataset?include=trials,tlx,custom
-```
+- **Project data**: `GET /api/projects/[id]/analytics/dataset[?trials=false]` returns long-format
+  `{rows, schema, n}` built by `loadProjectDataset()` in `src/lib/analytics/dataset.ts` (sessions →
+  blocks → trials, deduped, plus per-project custom-question columns). Used by the workbench UI.
+- **Uploaded datasets**: stored whole in the `Dataset` table (`rows` + `schema` jsonb), created by
+  `POST /api/datasets` from raw CSV text. Headers are **sanitised into safe keys**
+  (`src/lib/analytics/csvIngest.ts`) and types inferred (numeric vs categorical, user-overridable).
 
-Returns:
-```jsonc
-{
-  "rows": [
-    { "session_id":"...", "pid":"P-001", "email":"...",
-      "stim_type":"letters", "level":2,
-      "trial_index":4, "rt_ms":612, "correct":true,
-      "tlx_mental":70, "tlx_paas":7,
-      "custom_q1":"3", "demographics_age":"24" },
-    ...
-  ],
-  "schema": { /* variable types + labels */ }
-}
-```
+**Crucially, the browser never uploads the dataset for analysis.** It sends only
+`{projectId | datasetId, variables, options, includeTrials?}` to the proxy
+(`src/app/api/analytics/[...path]/route.ts`), which:
+
+1. authorises (project owner/collaborator, or dataset owner/linked-project collaborator),
+2. loads rows server-side (rebuild from Prisma, or read the stored Dataset),
+3. for projects: includes trial-level rows **only** when the analysis references a trial column
+   (`TRIAL_COLUMNS` = trial_index / is_priming / rt_ms / correct) — otherwise block-level, far smaller,
+4. **projects each row down to just the referenced columns** (`referencedColumns()`), then
+5. forwards `{data, variables, options}` to Python.
+
+This cut a 259 MB normality payload to single-digit MB — required because the VPS has 1.6 GB RAM and a
+50 MB nginx body cap.
+
+⚠️ Gotcha: `referencedColumns()` tokenises formula strings on non-word chars, so column keys must be
+`\w`-safe. CSV headers are sanitised at ingest for exactly this reason, and `custom_<uuid>` columns
+(hyphenated) are matched whole-string first.
 
 The Python service never touches Prisma. This keeps it reusable across projects and makes local testing trivial (feed it a CSV).
 
@@ -154,7 +181,7 @@ The Python service never touches Prisma. This keeps it reusable across projects 
 
 Build in priority of "value per hour of work." Item numbers reference your original list.
 
-### Phase 1 — Foundations (Week 1)
+### Phase 1 — Foundations ✅ SHIPPED
 - Repo skeleton, Dockerfile, health check, shared-secret auth, OpenAPI generation
 - One Next.js proxy route: `src/app/api/analytics/[...path]/route.ts` (catch-all that forwards to Python)
 - Dataset endpoint: `/api/projects/[id]/analytics/dataset`
@@ -163,19 +190,19 @@ Build in priority of "value per hour of work." Item numbers reference your origi
 
 These two unlock the UI scaffolding (pickers, plot rendering, table → CSV download) and the rest is mostly more routers with the same shape.
 
-### Phase 2 — Inferential basics (Week 2)
+### Phase 2 — Inferential basics ✅ SHIPPED
 - **t-test (#3)** — one-sample, paired, independent; CI at chosen alpha; Cohen's d
 - **Correlation (#5)** — Pearson + Spearman + Kendall, scatter + correlation matrix heatmap
 - **Chi-square (#6)** — independence + goodness-of-fit, Cramér's V, contingency table
 - **ANOVA (#4)** — one-way, two-way, RM-ANOVA, Tukey + Bonferroni + Holm post-hoc, partial η²
 
-### Phase 3 — Regression & reliability (Week 3)
+### Phase 3 — Regression & reliability ✅ SHIPPED
 - **Multiple regression (#7)** — `statsmodels.OLS`, β, SE, t, p, 95% CI, R², adj-R², VIF, residual plots
 - **Logistic regression (#8)** — `statsmodels.Logit`, odds ratios with CIs, pseudo-R², classification report
 - **Reliability (#10 part 1)** — Cronbach's α, McDonald's ω; effect sizes (Cohen's d/f, η², odds ratio)
 - **ROC (#10 part 2)** — `sklearn.metrics`, AUC with bootstrap CI, sensitivity/specificity at chosen thresholds
 
-### Phase 4 — Advanced (Week 4+)
+### Phase 4 — Advanced ✅ SHIPPED
 - **Statistical modelling (#9)** — `statsmodels` formula API as a general endpoint (`smf.ols`, `smf.mixedlm`, `smf.glm`); user passes a formula string. Power tool for everything not covered above.
 - **Time series (#11)** — `statsmodels.tsa` for trend/seasonality; `ruptures.Pelt` for changepoint = "timing of performance decline"; growth curves via mixed-effects (`smf.mixedlm`)
 - **Mediation (#13)** — `pingouin.mediation_analysis` with bootstrap CIs (Hayes-style)
@@ -200,7 +227,7 @@ When needed: in-process `BackgroundTasks` + a `jobs` table in Postgres (Next.js 
 ## 7. Auth and security
 
 - **Inter-service**: single `ANALYTICS_SHARED_SECRET` env var, sent as `X-Analytics-Key` header. Verify in a FastAPI dependency.
-- **User auth stays in Next.js**. Browser → Next.js → Python; Python is **not** internet-routable beyond the secret check. On Fly/Railway, bind it to a private network if possible.
+- **User auth stays in Next.js**. Browser → Next.js → Python; Python is **not** internet-routable beyond the secret check. On the VPS the container binds `127.0.0.1:8000` only — nginx is the sole public entry point.
 - **Project access**: Next.js verifies the caller can read the project (owner or collaborator) *before* assembling the dataset. Python never sees user identities.
 - **Input limits**: cap row count (e.g. 200k) and column count in Pydantic validation. Reject silently-truncated payloads.
 
@@ -227,36 +254,48 @@ Keep these dumb and reusable across routers.
 
 Analyses on the same dataset with the same params are deterministic — cache aggressively.
 
-Schema addition (one new table):
+Current schema (cache rows belong to either a project **or** an uploaded dataset):
 ```prisma
 model AnalysisResult {
   id          String   @id @default(cuid())
-  projectId   String
+  projectId   String?
+  datasetId   String?
   analysisKey String   // e.g. "anova"
-  paramsHash  String   // sha256 of dataset+variables+options
+  paramsHash  String   // sha256 of projected data + variables + options
   result      Json
   createdAt   DateTime @default(now())
-  project     Project  @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  project     Project? @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  dataset     Dataset? @relation(fields: [datasetId], references: [id], onDelete: Cascade)
   @@unique([projectId, analysisKey, paramsHash])
+  @@unique([datasetId, analysisKey, paramsHash])
 }
 ```
 
-Next.js checks cache before calling Python. Invalidate when sessions change (delete by `projectId` on session insert).
+Next.js checks the cache before calling Python (second identical run returns `cached: true`).
+Invalidation: project caches are cleared on session insert (delete by `projectId`); dataset caches are
+cleared when the dataset's rows/schema are PATCHed. The `paramsHash` covers the projected data, so stale
+hits are impossible regardless — the purge only prevents dead rows accumulating.
 
 ---
 
-## 10. Frontend integration
+## 10. Frontend integration — as built
 
-New section in the project dashboard: `/dashboard/projects/[id]/analytics`.
+The planned picker/selector components became a full SPSS-style **workbench**
+(`src/components/workbench/`), mounted at `/dashboard/projects/[id]/analytics` (project data) and
+`/dashboard/datasets/[id]/analytics` (uploaded CSVs):
 
-Components:
-- `AnalysisPicker` — list of 13 analyses, grouped (Descriptive / Inferential / Regression / Reliability / Advanced)
-- `VariableSelector` — pulls schema from `/api/projects/[id]/analytics/dataset` and renders typed dropdowns (numeric vs categorical vs ordinal)
-- `OptionsPanel` — analysis-specific (alpha, post-hoc method, formula box, etc.)
-- `ResultView` — renders `stats` as a card, `table` as a downloadable CSV, `plots[]` via `react-plotly.js`
-- `WarningsBanner` — surfaces the `warnings[]` array (small sample, normality violated, etc.)
+- `WorkbenchShell` — layout orchestrator; drives everything from `{rows, schema}` + an `AnalysisSource`
+  (`{kind:"project"|"dataset", …}`); persists dataset edits via PATCH
+- `AnalyzeMenu` + `DialogHost` — grouped analysis menu → slide-in analysis panel
+- `BackendAnalysisForm` — schema-driven typed column pickers + options per analysis
+  (field definitions in `src/lib/analytics/backendConfig.ts`); sends `{projectId|datasetId, variables, options}`
+- `BackendResultPanel` — renders `stats`, downloadable `table`, `plots[]` (Plotly), `warnings[]`
+- `DataGrid` / `DatasetVariableView` — data view + editable variable types/labels (dataset mode)
+- `ComputedColumnDialog` — row-level computed columns (mean/sum/diff/zscore/log/recode/if-then),
+  materialised into rows (`src/lib/analytics/computeColumn.ts`)
+- `ImportCsvDialog` — merge rows into the current schema, or upload as a new dataset
 
-Reuse the existing CSV download flow from [src/lib/csv.ts](src/lib/csv.ts) for the "Download as CSV" button on every result.
+CSV downloads reuse [src/lib/csv.ts](src/lib/csv.ts).
 
 ---
 
@@ -268,41 +307,54 @@ Reuse the existing CSV download flow from [src/lib/csv.ts](src/lib/csv.ts) for t
 
 ---
 
-## 12. Deployment
+## 12. Deployment — as built
 
-- **Local dev**: `docker compose up` with two services — Next.js (`npm run dev`) and Python (`uvicorn --reload`). Single `.env` at root, separate envs piped in via compose.
+- **Local dev**: `npm run dev` for Next.js; `uvicorn --reload` (or docker compose) for Python.
 - **Production**:
-  - Python on Fly.io (cheap, supports Dockerfiles cleanly, can scale-to-zero if traffic is bursty)
-  - Next.js wherever it lives now
-  - Shared secret stored in both deployment platforms
-  - Healthcheck `/healthz` on Python, monitored by Next.js startup
-- **Observability**: log every request with `(analysis, n_rows, duration_ms, status)`. Send to whatever the rest of the stack uses; add structlog if you don't have a logger.
+  - **Next.js on Vercel** — auto-deploys on every push to `main`. Function request bodies capped ~4.5 MB.
+  - **Python on a self-hosted VPS** (1.6 GB RAM) — Docker container `neurogauge-analytics` started via
+    `analytics/docker-compose.prod.yml --env-file .env.production`, bound to `127.0.0.1:8000` (never
+    publicly exposed); nginx + Let's Encrypt serve `analytics.learnogauge.com` with
+    `client_max_body_size 50m`. Only ports 22/80/443 open.
+  - **CI/CD**: `.github/workflows/analytics.yml` — on pushes to `main` touching `analytics/`, run pytest
+    (uv, Python 3.12), then SSH in as the `deploy` user (repo secrets `VPS_HOST`/`VPS_USER`/
+    `VPS_SSH_KEY`/`VPS_APP_DIR`, GitHub environment `production`), `git pull --ff-only`,
+    `docker compose up -d --build`, and poll `/healthz`.
+  - **Secrets**: `ANALYTICS_URL` + `ANALYTICS_SHARED_SECRET` must match between Vercel env vars and the
+    VPS `analytics/.env.production` (gitignored; example committed). Never regenerate one side only.
+- **Observability**: log every request with `(analysis, n_rows, duration_ms, status)`. nginx error log on
+  the VPS is the first stop for 413/5xx (`/var/log/nginx/error.log`).
 
 ---
 
-## 13. Out of scope for v1
+## 13. Out of scope
 
-Resist these until users actually ask:
-- User-uploaded CSVs (always come from project data first)
+~~User-uploaded CSVs~~ — **shipped** (Dataset model, `/dashboard/datasets`, editable variables, computed
+columns; see Status block at top).
+
+Still resist these until users actually ask:
 - R bridge (`rpy2`) — `semopy` and `pingouin` cover the gaps
 - Bayesian variants (BayesFactor t-test, Bayesian regression)
 - ML beyond logistic regression (random forest etc.)
 - Real-time / streaming analytics
-- A graphical "model builder" UI for SEM/regression — formula strings are fine for v1
+- A graphical "model builder" UI for SEM/regression — formula strings are fine
 
 ---
 
-## 14. Open questions (decide before Week 1)
+## 14. Open questions — ANSWERED
 
-1. **Where to host Python?** Fly.io is the lowest-friction default. Confirm.
-2. **Plot interactivity**: Plotly (recommended) or static matplotlib only? Plotly is a heavier frontend bundle (~3MB) but worth it.
-3. **Who consumes results besides the dashboard?** If a future research-report PDF needs them, design `ResultView` with both interactive (Plotly) and printable (PNG) render paths from day one.
-4. **Multi-tenant scaling**: are you expecting more than ~50 concurrent analyses? If yes, jobs queue moves earlier.
-5. **Auth boundary**: is the Python service reachable only via private networking, or public-but-secret-gated? Private is safer; check Fly's private-IPv6 networking suits your Next.js host.
+1. **Where to host Python?** → Self-hosted VPS (Docker + nginx + Let's Encrypt at
+   `analytics.learnogauge.com`), not Fly.io.
+2. **Plot interactivity** → Plotly JSON specs rendered client-side. Confirmed worth the bundle.
+3. **Who consumes results besides the dashboard?** → A printable report page exists at
+   `/dashboard/projects/[id]/report` (HTML snapshot handoff).
+4. **Multi-tenant scaling** → Still small; no jobs queue needed yet (§6 stands).
+5. **Auth boundary** → Public-but-secret-gated: container binds `127.0.0.1:8000`; nginx terminates TLS;
+   every request requires `X-Analytics-Key`.
 
 ---
 
-## Suggested first commit
+## Suggested first commit (historical — long since shipped)
 
 ```
 analytics/

@@ -3,7 +3,7 @@ import { useEffect, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { motion } from "framer-motion";
-import { FolderOpen, Plus, Users, FlaskConical, LogOut, ChevronRight } from "lucide-react";
+import { FolderOpen, Plus, Users, FlaskConical, LogOut, ChevronRight, Database } from "lucide-react";
 
 interface ProjectCard {
   id: string;
@@ -58,9 +58,14 @@ export default function DashboardPage() {
               Projects you own or collaborate on appear here.
             </p>
           </div>
-          <Link href="/dashboard/projects/new" className="btn btn-primary flex items-center gap-2">
-            <Plus className="w-4 h-4" /> New project
-          </Link>
+          <div className="flex items-center gap-2">
+            <Link href="/dashboard/datasets" className="btn btn-ghost flex items-center gap-2">
+              <Database className="w-4 h-4" /> Datasets
+            </Link>
+            <Link href="/dashboard/projects/new" className="btn btn-primary flex items-center gap-2">
+              <Plus className="w-4 h-4" /> New project
+            </Link>
+          </div>
         </motion.div>
 
         {loading && (

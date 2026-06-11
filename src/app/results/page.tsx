@@ -19,8 +19,9 @@ function ResultsContent() {
 
   useEffect(() => {
     const q = searchParams.get("email");
+    // Seed the search box + run the lookup from the URL once on mount.
+    // eslint-disable-next-line react-hooks/set-state-in-effect, react-hooks/exhaustive-deps
     if (q) { setEmail(q); lookup(q); }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   async function lookup(emailOverride?: string) {
@@ -323,7 +324,7 @@ function AccuracyBadge({ val }: { val: number }) {
 
 function AggregateSummary({ blocks }: { blocks: AnySession[] }) {
   let totalHits = 0, totalMisses = 0, totalFA = 0, totalCR = 0;
-  let rtVals: number[] = [];
+  const rtVals: number[] = [];
   for (const b of blocks) {
     const m = summarize(b.trials ?? []);
     totalHits += m.hits; totalMisses += m.misses;

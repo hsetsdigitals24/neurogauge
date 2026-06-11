@@ -9,6 +9,8 @@ export function VariableEditor({ variableId, onClose }: { variableId: string; on
   const def = ws.variables.find((v) => v.id === variableId);
   const [label, setLabel] = useState(def?.label ?? "");
   const [role, setRole] = useState<VariableDef["role"]>(def?.role ?? "numeric");
+  // Reset the controlled inputs when a different variable is selected.
+  // eslint-disable-next-line react-hooks/set-state-in-effect
   useEffect(() => { if (def) { setLabel(def.label); setRole(def.role); } }, [def]);
 
   if (!def) return null;

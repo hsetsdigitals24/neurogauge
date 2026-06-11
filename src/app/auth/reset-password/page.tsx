@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { motion } from "framer-motion";
 import Image from "next/image";
+import PasswordInput from "@/components/PasswordInput";
 
 function ResetForm() {
   const router = useRouter();
@@ -72,24 +73,20 @@ function ResetForm() {
           New password{" "}
           <span className="font-normal text-[color:var(--muted)]">(min 8 characters)</span>
         </label>
-        <input
-          className="input"
-          type="password"
-          autoComplete="new-password"
-          required
+        <PasswordInput
           value={password}
           onChange={(e) => setPassword(e.target.value)}
+          autoComplete="new-password"
+          required
         />
       </div>
       <div>
         <label className="label">Confirm new password</label>
-        <input
-          className="input"
-          type="password"
-          autoComplete="new-password"
-          required
+        <PasswordInput
           value={confirm}
           onChange={(e) => setConfirm(e.target.value)}
+          autoComplete="new-password"
+          required
         />
       </div>
       {error && <p className="text-sm text-[color:var(--danger)]">{error}</p>}

@@ -1,5 +1,5 @@
 "use client";
-import { useMemo, useReducer, useState } from "react";
+import { useEffect, useMemo, useReducer, useRef, useState } from "react";
 import { Database, Table } from "lucide-react";
 import { WorkspaceProvider } from "@/components/stats/workspace/WorkspaceProvider";
 import { FilterBar } from "@/components/stats/workspace/FilterBar";
@@ -12,7 +12,8 @@ import {
   makeInitialState,
   deriveRows,
 } from "@/lib/analytics/workbenchState";
-import type { DatasetResponse } from "@/lib/analytics/client";
+import type { ComputedColumnDef } from "@/lib/analytics/computeColumn";
+import type { DatasetResponse, AnalysisSource } from "@/lib/analytics/client";
 import type { CustomQuestion } from "@/lib/types";
 import { WorkbenchToolbar } from "./WorkbenchToolbar";
 import { LeftPanel } from "./LeftPanel";
@@ -20,9 +21,11 @@ import { DataGrid } from "./DataGrid";
 import { AnalysisSlidePanel } from "./AnalysisSlidePanel";
 import { BottomOutputPanel } from "./BottomOutputPanel";
 import { ImportCsvDialog } from "./ImportCsvDialog";
+import { DatasetVariableView } from "./DatasetVariableView";
+import { ComputedColumnDialog } from "./ComputedColumnDialog";
 
 interface WorkbenchShellProps {
-  projectId: string;
+  source: AnalysisSource;
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   sessions: any[];
   questions: CustomQuestion[];
@@ -32,20 +35,64 @@ interface WorkbenchShellProps {
 type CenterTab = "data" | "variables";
 
 export function WorkbenchShell({
-  projectId,
+  source,
   sessions,
   questions,
   dataset,
 }: WorkbenchShellProps) {
-  const initial = useMemo(() => makeInitialState(dataset.rows, dataset.schema), [dataset]);
+  // Opaque key for WorkspaceProvider seeding + localStorage namespacing.
+  const workspaceKey = source.kind === "project" ? source.projectId : source.datasetId;
+  const isDataset = source.kind === "dataset";
+  const datasetId = source.kind === "dataset" ? source.datasetId : null;
+
+  const initial = useMemo(
+    () => makeInitialState(
+      dataset.rows,
+      dataset.schema,
+      (dataset.computedColumns as ComputedColumnDef[] | undefined) ?? []
+    ),
+    [dataset]
+  );
   const [workbenchState, workbenchDispatch] = useReducer(workbenchReducer, initial);
   const [centerTab, setCenterTab] = useState<CenterTab>("data");
   const [showImport, setShowImport] = useState(false);
   const [showTransform, setShowTransform] = useState(false);
+  const [showComputed, setShowComputed] = useState(false);
   const [editingVarId, setEditingVarId] = useState<string | null>(null);
 
   const filteredRows = useMemo(() => deriveRows(workbenchState), [workbenchState]);
   const totalRows = workbenchState.rows.length + workbenchState.importedRows.length;
+
+  // Persist schema retypes/renames + computed columns back to the stored dataset.
+  // Rows only travel when computed columns change — and never for blob-backed
+  // datasets (function body cap); those re-apply computed columns from defs on load.
+  const rowsPersisted = dataset.rowsPersisted !== false;
+  const skipFirstPersist = useRef(true);
+  const lastComputedRef = useRef(workbenchState.computedColumns);
+  useEffect(() => {
+    if (!datasetId) return;
+    if (skipFirstPersist.current) {
+      skipFirstPersist.current = false;
+      lastComputedRef.current = workbenchState.computedColumns;
+      return;
+    }
+    const rowsChanged = lastComputedRef.current !== workbenchState.computedColumns;
+    lastComputedRef.current = workbenchState.computedColumns;
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const body: Record<string, any> = {
+      schema: workbenchState.schema,
+      computedColumns: workbenchState.computedColumns,
+    };
+    if (rowsChanged && rowsPersisted) body.rows = workbenchState.rows;
+    const t = setTimeout(() => {
+      fetch(`/api/datasets/${datasetId}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(body),
+      }).catch(() => {});
+    }, 600);
+    return () => clearTimeout(t);
+  }, [datasetId, rowsPersisted, workbenchState.schema, workbenchState.computedColumns, workbenchState.rows]);
 
   const workbenchCtx = useMemo(
     () => ({
@@ -53,12 +100,13 @@ export function WorkbenchShell({
       dispatch: workbenchDispatch,
       filteredRows,
       totalRows,
+      source,
     }),
-    [workbenchState, filteredRows, totalRows]
+    [workbenchState, filteredRows, totalRows, source]
   );
 
   return (
-    <WorkspaceProvider projectId={projectId} sessions={sessions} questions={questions}>
+    <WorkspaceProvider projectId={workspaceKey} sessions={sessions} questions={questions}>
       <WorkbenchContext.Provider value={workbenchCtx}>
         {/* Full-screen column layout */}
         <div className="flex flex-col h-full min-h-0 overflow-hidden bg-white">
@@ -115,7 +163,11 @@ export function WorkbenchShell({
                   <DataGrid />
                 ) : (
                   <div className="overflow-auto h-full p-3">
-                    <VariableView onEdit={(id) => setEditingVarId(id)} />
+                    {isDataset ? (
+                      <DatasetVariableView onNewComputed={() => setShowComputed(true)} />
+                    ) : (
+                      <VariableView onEdit={(id) => setEditingVarId(id)} />
+                    )}
                   </div>
                 )}
 
@@ -138,6 +190,9 @@ export function WorkbenchShell({
         )}
         {showImport && (
           <ImportCsvDialog onClose={() => setShowImport(false)} />
+        )}
+        {showComputed && (
+          <ComputedColumnDialog onClose={() => setShowComputed(false)} />
         )}
       </WorkbenchContext.Provider>
     </WorkspaceProvider>

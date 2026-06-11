@@ -21,7 +21,10 @@ export async function GET(req: Request) {
   });
 
   const customQuestionIds = Array.from(new Set(
-    sessions.flatMap((s) => ((s.config as any)?.customQuestions ?? []).map((q: any) => q.id))
+    sessions.flatMap((s) => {
+      const cfg = s.config as { customQuestions?: { id: string }[] } | null;
+      return (cfg?.customQuestions ?? []).map((q) => q.id);
+    })
   ));
 
   let body: string;

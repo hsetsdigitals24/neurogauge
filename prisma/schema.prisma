@@ -18,6 +18,7 @@ model User {
   collaborations     ProjectCollaborator[]
   sentInvites        CollaboratorInvite[]  @relation("InvitedBy")
   passwordResets     PasswordResetToken[]
+  datasets           Dataset[]
 }
 
 model PasswordResetToken {
@@ -47,20 +48,46 @@ model Project {
   invites       CollaboratorInvite[]
   sessions      TestSession[]
   analysisResults AnalysisResult[]
+  datasets      Dataset[]
+}
+
+model Dataset {
+  id              String   @id @default(cuid())
+  ownerId         String
+  projectId       String?            // set when uploaded inside a project; null = standalone
+  name            String
+  schema          Json               // Record<string, { type, label }>  (ColumnSchema)
+  rows            Json?              // Record<string, unknown>[] — inline for small datasets
+  rowsBlobUrl     String?            // Vercel Blob URL of rows JSON for large datasets
+  computedColumns Json?              // ComputedColumnDef[] — re-applied on load for blob-backed datasets
+  n               Int
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  owner   User     @relation(fields: [ownerId], references: [id], onDelete: Cascade)
+  project Project? @relation(fields: [projectId], references: [id], onDelete: SetNull)
+  analysisResults AnalysisResult[]
+
+  @@index([ownerId])
+  @@index([projectId])
 }
 
 model AnalysisResult {
   id          String   @id @default(cuid())
-  projectId   String
+  projectId   String?
+  datasetId   String?
   analysisKey String
   paramsHash  String
   result      Json
   createdAt   DateTime @default(now())
 
-  project Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  project Project? @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  dataset Dataset? @relation(fields: [datasetId], references: [id], onDelete: Cascade)
 
   @@unique([projectId, analysisKey, paramsHash])
+  @@unique([datasetId, analysisKey, paramsHash])
   @@index([projectId])
+  @@index([datasetId])
 }
 
 model ProjectCollaborator {

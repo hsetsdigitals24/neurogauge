@@ -73,7 +73,7 @@ export async function GET(req: Request, ctx: Ctx) {
 
   const questionnaireHeaderLabels = customQuestions.map((q) => q.prompt || q.id);
 
-  if (format === "wide") {
+  function buildWideCsv(): string {
     const headers = [
       "session_id", "participant_id", "taker_email",
       "stimulus_type", "level", "scorable", "hits", "misses",
@@ -127,9 +127,10 @@ export async function GET(req: Request, ctx: Ctx) {
         ].map(esc).join(","));
       }
     }
-    body = rows.join("\n");
-    filename = `${slug}_summary_wide.csv`;
-  } else {
+    return rows.join("\n");
+  }
+
+  function buildLongCsv(): string {
     const headers = [
       "session_id", "participant_id", "taker_email",
       "stimulus_type", "level", "trial_index",
@@ -165,7 +166,17 @@ export async function GET(req: Request, ctx: Ctx) {
         }
       }
     }
-    body = rows.join("\n");
+    return rows.join("\n");
+  }
+
+  if (format === "wide") {
+    body = buildWideCsv();
+    filename = `${slug}_summary_wide.csv`;
+  } else if (format === "combined") {
+    body = `# TRIALS (LONG)\n${buildLongCsv()}\n\n# SUMMARY (WIDE)\n${buildWideCsv()}`;
+    filename = `${slug}_results_combined.csv`;
+  } else {
+    body = buildLongCsv();
     filename = `${slug}_trials_long.csv`;
   }
 

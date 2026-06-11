@@ -5,12 +5,13 @@ import type { BackendAnalysisConfig, FieldDef } from "@/lib/analytics/backendCon
 import type { ColumnSchema } from "@/lib/analytics/dataset";
 import type { DialogKey } from "@/lib/stats/workspace";
 import { useBackendRun } from "@/lib/analytics/useBackendRun";
+import type { AnalysisSource } from "@/lib/analytics/client";
 import { BackendResultPanel } from "./BackendResultPanel";
 
 interface Props {
   dialogKey: DialogKey;
   config: BackendAnalysisConfig;
-  projectId: string;
+  source: AnalysisSource;
   dataRows: Record<string, unknown>[];
   schema: Record<string, ColumnSchema>;
 }
@@ -62,7 +63,7 @@ function isReady(fields: FieldDef[], values: Record<string, unknown>): boolean {
   return true;
 }
 
-export function BackendAnalysisForm({ dialogKey, config, projectId, dataRows, schema }: Props) {
+export function BackendAnalysisForm({ dialogKey, config, source, dataRows, schema }: Props) {
   const [values, setValues] = useState<Record<string, unknown>>(() => initValues(config.fields));
   const { run, loading, error, result } = useBackendRun();
 
@@ -83,7 +84,9 @@ export function BackendAnalysisForm({ dialogKey, config, projectId, dataRows, sc
   async function handleRun() {
     const payload = config.toPayload(values);
     await run(config.endpoint, {
-      projectId,
+      ...(source.kind === "project"
+        ? { projectId: source.projectId }
+        : { datasetId: source.datasetId }),
       variables: payload.variables,
       options: payload.options,
     });

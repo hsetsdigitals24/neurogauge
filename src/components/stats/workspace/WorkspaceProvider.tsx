@@ -222,6 +222,9 @@ export function WorkspaceProvider({
       const rows = extractNumeric(sessions, def.source.variable, questions);
       result = new Map(rows.map((r) => [r.participantId, r.value as number | null]));
     } else {
+      // resolveNumericInternal / resolveAnyInternal are mutually recursive; the forward reference is
+      // safe because this branch only runs when the callback is invoked (well after both are declared).
+      // eslint-disable-next-line react-hooks/immutability
       result = computeDerived(def, resolveNumericInternal, resolveAnyInternal);
     }
     numericCache.current.set(variableId, result);
@@ -246,6 +249,8 @@ export function WorkspaceProvider({
     return result;
   }, [sessions, questions, state.variables, resolveNumericInternal]);
 
+  // resolveAnyInternal reads the memoised value caches (refs) by design; safe inside this memo.
+  // eslint-disable-next-line react-hooks/refs
   const visiblePids = useMemo(() => filterPids(state.filter, resolveAnyInternal, state.variables),
     [state.filter, state.variables, resolveAnyInternal]);
 

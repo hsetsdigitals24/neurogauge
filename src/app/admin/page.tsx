@@ -18,7 +18,11 @@ export default function AdminPage() {
   const [cfg, setCfg] = useState<StudyConfig>(DEFAULT_CONFIG);
   const [saved, setSaved] = useState(false);
 
-  useEffect(() => { setCfg(loadConfig()); }, []);
+  useEffect(() => {
+    // One-time hydrate from localStorage on mount (kept in an effect to avoid SSR/hydration mismatch).
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    setCfg(loadConfig());
+  }, []);
 
   function update<K extends keyof StudyConfig>(k: K, v: StudyConfig[K]) {
     setCfg((c) => ({ ...c, [k]: v }));

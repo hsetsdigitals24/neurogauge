@@ -66,7 +66,11 @@ export default function ProjectDetailPage() {
     setLoading(false);
   }, [id, router]);
 
-  useEffect(() => { load(); }, [load]);
+  useEffect(() => {
+    // Async loader; setState happens after the awaited fetches resolve.
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    load();
+  }, [load]);
 
   function update<K extends keyof StudyConfig>(k: K, v: StudyConfig[K]) {
     setCfg((c) => c ? { ...c, [k]: v } : c);
@@ -623,9 +627,9 @@ export default function ProjectDetailPage() {
 
 function DownloadResults({ projectId, disabled }: { projectId: string; disabled: boolean }) {
   const [open, setOpen] = useState(false);
-  const [busy, setBusy] = useState<"long" | "wide" | null>(null);
+  const [busy, setBusy] = useState<"long" | "wide" | "combined" | null>(null);
 
-  async function download(format: "long" | "wide") {
+  async function download(format: "long" | "wide" | "combined") {
     setBusy(format);
     try {
       const res = await fetch(`/api/projects/${projectId}/export?format=${format}`);
@@ -686,6 +690,18 @@ function DownloadResults({ projectId, disabled }: { projectId: string; disabled:
             </div>
             <div className="text-xs text-[color:var(--muted)] mt-0.5">
               One row per participant × stimulus × level, with accuracy, d′, RT, NASA-TLX.
+            </div>
+          </button>
+          <button
+            className="w-full text-left p-3 rounded-lg hover:bg-gray-50 disabled:opacity-50"
+            onClick={() => download("combined")}
+            disabled={busy !== null}
+          >
+            <div className="font-semibold text-sm">
+              {busy === "combined" ? "Preparing…" : "Combined CSV (long + wide)"}
+            </div>
+            <div className="text-xs text-[color:var(--muted)] mt-0.5">
+              Both tables in one file — trial rows first, then the summary section.
             </div>
           </button>
         </div>

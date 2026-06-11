@@ -15,12 +15,14 @@ export default function ReportPage() {
   useEffect(() => {
     try {
       const raw = localStorage.getItem(REPORT_HANDOFF_KEY);
+      // One-time hydrate from localStorage on mount (effect avoids SSR/hydration mismatch).
+      // eslint-disable-next-line react-hooks/set-state-in-effect
       if (raw) setPayload(JSON.parse(raw));
     } catch { /* */ }
   }, []);
 
   if (!payload) {
-    return <div className="p-10 text-center text-gray-500">No report data — open this page from the workspace's <em>Report</em> button.</div>;
+    return <div className="p-10 text-center text-gray-500">No report data — open this page from the workspace&apos;s <em>Report</em> button.</div>;
   }
   const date = new Date(payload.generatedAt).toLocaleString();
 
