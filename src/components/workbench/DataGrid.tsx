@@ -1,8 +1,9 @@
 "use client";
 import { useMemo, useState } from "react";
-import { ArrowUp, ArrowDown, ArrowUpDown, Columns3, ChevronLeft, ChevronRight } from "lucide-react";
+import { ArrowUp, ArrowDown, ArrowUpDown, Columns3, ChevronLeft, ChevronRight, Plus, X } from "lucide-react";
 import { useWorkbench } from "@/contexts/WorkbenchContext";
-import type { ColumnSchema } from "@/lib/analytics/dataset";
+import type { ColumnSchema, ColumnType } from "@/lib/analytics/dataset";
+import { sanitiseColumnKey, uniqueKey } from "@/lib/analytics/csvIngest";
 
 const STIM_COLORS: Record<string, string> = {
   "letters":   "border-l-2 border-l-cyan-400",
@@ -57,9 +58,82 @@ function ColumnPicker({ allColumns, visibleColumns, schema, onToggle, onClose }:
   );
 }
 
+interface AddColumnPopoverProps {
+  schema: Record<string, ColumnSchema>;
+  onAdd: (key: string, label: string, columnType: ColumnType) => void;
+  onClose: () => void;
+}
+
+function AddColumnPopover({ schema, onAdd, onClose }: AddColumnPopoverProps) {
+  const [label, setLabel] = useState("");
+  const [columnType, setColumnType] = useState<ColumnType>("numeric");
+
+  function submit() {
+    const trimmed = label.trim();
+    if (!trimmed) return;
+    const key = uniqueKey(sanitiseColumnKey(trimmed), new Set(Object.keys(schema)));
+    onAdd(key, trimmed, columnType);
+    onClose();
+  }
+
+  return (
+    <div className="absolute right-0 top-full mt-1 z-30 bg-white border border-[color:var(--border)] rounded-xl shadow-xl p-3 w-60">
+      <div className="flex items-center justify-between mb-2">
+        <span className="text-xs font-semibold">New column</span>
+        <button className="text-xs text-[color:var(--muted)] hover:text-gray-700" onClick={onClose}>Cancel</button>
+      </div>
+      <input
+        autoFocus
+        className="input text-xs w-full mb-2"
+        placeholder="Column name"
+        value={label}
+        onChange={(e) => setLabel(e.target.value)}
+        onKeyDown={(e) => { if (e.key === "Enter") submit(); if (e.key === "Escape") onClose(); }}
+      />
+      <select
+        className="select text-xs w-full mb-2"
+        value={columnType}
+        onChange={(e) => setColumnType(e.target.value as ColumnType)}
+      >
+        <option value="numeric">numeric</option>
+        <option value="categorical">categorical</option>
+        <option value="ordinal">ordinal</option>
+      </select>
+      <button className="btn btn-primary text-xs w-full" disabled={!label.trim()} onClick={submit}>
+        Add column
+      </button>
+    </div>
+  );
+}
+
+interface EditingCell {
+  rowRef: Record<string, unknown>;
+  col: string;
+}
+
 export function DataGrid() {
-  const { state, dispatch, filteredRows } = useWorkbench();
+  const { state, dispatch, filteredRows, source } = useWorkbench();
   const [showColumnPicker, setShowColumnPicker] = useState(false);
+  const [showAddColumn, setShowAddColumn] = useState(false);
+  const [editing, setEditing] = useState<EditingCell | null>(null);
+  const [draft, setDraft] = useState("");
+
+  // Direct editing is only for uploaded datasets — project rows are rebuilt
+  // from session data on every load, so edits there could never persist.
+  const editable = source.kind === "dataset";
+
+  function startEdit(rowRef: Record<string, unknown>, col: string) {
+    if (!editable) return;
+    setEditing({ rowRef, col });
+    const v = rowRef[col];
+    setDraft(v == null ? "" : String(v));
+  }
+
+  function commitEdit() {
+    if (!editing) return;
+    dispatch({ type: "editCell", rowRef: editing.rowRef, col: editing.col, value: draft });
+    setEditing(null);
+  }
 
   const visibleCols = useMemo(
     () => state.visibleColumns.filter((c) => c in state.schema),
@@ -116,7 +190,38 @@ export function DataGrid() {
           )}
         </span>
 
-        <div className="ml-auto relative">
+        {editable && (
+          <div className="ml-auto flex items-center gap-1">
+            <button
+              className="btn btn-ghost text-xs flex items-center gap-1"
+              title="Append an empty row"
+              onClick={() => {
+                dispatch({ type: "addRow" });
+                dispatch({ type: "setPage", page: Math.ceil((sortedRows.length + 1) / state.pageSize) - 1 });
+              }}
+            >
+              <Plus className="w-3.5 h-3.5" /> Row
+            </button>
+            <div className="relative">
+              <button
+                className="btn btn-ghost text-xs flex items-center gap-1"
+                title="Add an empty column"
+                onClick={() => setShowAddColumn((v) => !v)}
+              >
+                <Plus className="w-3.5 h-3.5" /> Column
+              </button>
+              {showAddColumn && (
+                <AddColumnPopover
+                  schema={state.schema}
+                  onAdd={(key, label, columnType) => dispatch({ type: "addColumn", key, label, columnType })}
+                  onClose={() => setShowAddColumn(false)}
+                />
+              )}
+            </div>
+          </div>
+        )}
+
+        <div className={`relative ${editable ? "" : "ml-auto"}`}>
           <button
             className="btn btn-ghost text-xs flex items-center gap-1"
             onClick={() => setShowColumnPicker((v) => !v)}
@@ -153,7 +258,9 @@ export function DataGrid() {
           <div className="flex items-center justify-center h-full text-sm text-[color:var(--muted)] p-8">
             {state.nbackFilter
               ? "No rows match the current filter. Select a different test from the left panel."
-              : "No data loaded. Check the project has sessions with trial data."}
+              : editable
+                ? "No rows in this dataset. Use “+ Row” above to add one."
+                : "No data loaded. Check the project has sessions with trial data."}
           </div>
         ) : (
           <table className="text-xs w-full border-collapse">
@@ -174,6 +281,20 @@ export function DataGrid() {
                         {state.schema[col]?.label ?? col}
                       </span>
                       <SortIcon col={col} />
+                      {editable && (
+                        <button
+                          className="opacity-0 group-hover:opacity-100 text-[color:var(--muted)] hover:text-red-600 transition-opacity"
+                          title="Delete column"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            if (confirm(`Delete column "${state.schema[col]?.label ?? col}"? Its values are removed from every row.`)) {
+                              dispatch({ type: "deleteColumn", col });
+                            }
+                          }}
+                        >
+                          <X className="w-3 h-3" />
+                        </button>
+                      )}
                     </span>
                     <span className="text-[9px] font-normal text-[color:var(--muted)] block">
                       {state.schema[col]?.type ?? ""}
@@ -189,18 +310,46 @@ export function DataGrid() {
                 return (
                   <tr
                     key={i}
-                    className={`hover:bg-indigo-50/30 even:bg-gray-50/50 ${rowColorClass}`}
+                    className={`group/row hover:bg-indigo-50/30 even:bg-gray-50/50 ${rowColorClass}`}
                   >
-                    <td className="sticky left-0 z-10 bg-inherit px-2 py-1 text-right text-[color:var(--muted)] border-r border-[color:var(--border)] tabular-nums">
+                    <td className="sticky left-0 z-10 bg-inherit px-2 py-1 text-right text-[color:var(--muted)] border-r border-[color:var(--border)] tabular-nums whitespace-nowrap">
+                      {editable && (
+                        <button
+                          className="opacity-0 group-hover/row:opacity-100 align-middle mr-1 text-[color:var(--muted)] hover:text-red-600 transition-opacity"
+                          title="Delete row"
+                          onClick={() => dispatch({ type: "deleteRow", rowRef: row })}
+                        >
+                          <X className="w-3 h-3" />
+                        </button>
+                      )}
                       {rowOffset + i + 1}
                     </td>
                     {visibleCols.map((col) => {
+                      const isEditing = editing?.rowRef === row && editing?.col === col;
+                      if (isEditing) {
+                        return (
+                          <td key={col} className="px-1 py-0.5 border-b border-[color:var(--border)] max-w-[180px]">
+                            <input
+                              autoFocus
+                              className={`w-full text-xs px-2 py-0.5 border border-indigo-400 rounded outline-none ${cellClass(state.schema[col])}`}
+                              value={draft}
+                              onChange={(e) => setDraft(e.target.value)}
+                              onBlur={commitEdit}
+                              onKeyDown={(e) => {
+                                if (e.key === "Enter") commitEdit();
+                                if (e.key === "Escape") setEditing(null);
+                              }}
+                            />
+                          </td>
+                        );
+                      }
                       const v = formatCell(row[col]);
                       return (
                         <td
                           key={col}
-                          className={`px-3 py-1 border-b border-[color:var(--border)] max-w-[180px] truncate ${cellClass(state.schema[col])}`}
-                          title={v}
+                          className={`px-3 py-1 border-b border-[color:var(--border)] max-w-[180px] truncate ${cellClass(state.schema[col])} ${editable ? "cursor-text" : ""}`}
+                          title={editable ? (v ? `${v} — double-click to edit` : "Double-click to edit") : v}
+                          onDoubleClick={() => startEdit(row, col)}
                         >
                           {v}
                         </td>

@@ -13,6 +13,7 @@ import {
   deriveRows,
 } from "@/lib/analytics/workbenchState";
 import type { ComputedColumnDef } from "@/lib/analytics/computeColumn";
+import { uploadRowsBlob } from "@/lib/analytics/uploadDataset";
 import type { DatasetResponse, AnalysisSource } from "@/lib/analytics/client";
 import type { CustomQuestion } from "@/lib/types";
 import { WorkbenchToolbar } from "./WorkbenchToolbar";
@@ -63,36 +64,49 @@ export function WorkbenchShell({
   const filteredRows = useMemo(() => deriveRows(workbenchState), [workbenchState]);
   const totalRows = workbenchState.rows.length + workbenchState.importedRows.length;
 
-  // Persist schema retypes/renames + computed columns back to the stored dataset.
-  // Rows only travel when computed columns change — and never for blob-backed
-  // datasets (function body cap); those re-apply computed columns from defs on load.
-  const rowsPersisted = dataset.rowsPersisted !== false;
+  // Persist schema retypes/renames, computed columns and row edits back to the
+  // stored dataset. Inline datasets send rows in the PATCH body; blob-backed
+  // ones (function body cap) re-upload the rows JSON directly to Vercel Blob
+  // from the browser and PATCH only the new URL.
+  const rowsInline = dataset.rowsPersisted !== false;
   const skipFirstPersist = useRef(true);
-  const lastComputedRef = useRef(workbenchState.computedColumns);
+  const lastRowsRevisionRef = useRef(workbenchState.rowsRevision);
   useEffect(() => {
     if (!datasetId) return;
     if (skipFirstPersist.current) {
       skipFirstPersist.current = false;
-      lastComputedRef.current = workbenchState.computedColumns;
+      lastRowsRevisionRef.current = workbenchState.rowsRevision;
       return;
     }
-    const rowsChanged = lastComputedRef.current !== workbenchState.computedColumns;
-    lastComputedRef.current = workbenchState.computedColumns;
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const body: Record<string, any> = {
-      schema: workbenchState.schema,
-      computedColumns: workbenchState.computedColumns,
-    };
-    if (rowsChanged && rowsPersisted) body.rows = workbenchState.rows;
-    const t = setTimeout(() => {
-      fetch(`/api/datasets/${datasetId}`, {
-        method: "PATCH",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(body),
-      }).catch(() => {});
-    }, 600);
+    const rowsChanged = lastRowsRevisionRef.current !== workbenchState.rowsRevision;
+    lastRowsRevisionRef.current = workbenchState.rowsRevision;
+    const { schema, computedColumns, rows } = workbenchState;
+    // Blob re-upload is heavier (whole rows JSON each save) — debounce longer.
+    const delay = rowsChanged && !rowsInline ? 1500 : 600;
+    const t = setTimeout(async () => {
+      try {
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        const body: Record<string, any> = { schema, computedColumns };
+        if (rowsChanged) {
+          if (rowsInline) {
+            body.rows = rows;
+          } else {
+            body.rowsBlobUrl = await uploadRowsBlob(rows);
+            body.n = rows.length;
+          }
+        }
+        await fetch(`/api/datasets/${datasetId}`, {
+          method: "PATCH",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(body),
+        });
+      } catch (e) {
+        console.error("Dataset save failed:", e);
+      }
+    }, delay);
     return () => clearTimeout(t);
-  }, [datasetId, rowsPersisted, workbenchState.schema, workbenchState.computedColumns, workbenchState.rows]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [datasetId, rowsInline, workbenchState.schema, workbenchState.computedColumns, workbenchState.rows, workbenchState.rowsRevision]);
 
   const workbenchCtx = useMemo(
     () => ({

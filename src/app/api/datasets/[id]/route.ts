@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { getSessionUser } from "@/lib/auth";
 import { resolveDatasetAccess } from "@/lib/analytics/datasetAuth";
-import { deleteRowsBlob } from "@/lib/analytics/datasetStore";
+import { deleteRowsBlob, isBlobUrl } from "@/lib/analytics/datasetStore";
 
 type Ctx = { params: Promise<{ id: string }> };
 
@@ -74,6 +74,8 @@ export async function PATCH(req: Request, ctx: Ctx) {
     schema?: Record<string, unknown>;
     rows?: Record<string, unknown>[];
     computedColumns?: unknown[];
+    rowsBlobUrl?: string;
+    n?: number;
   };
   try {
     body = await req.json();
@@ -99,6 +101,26 @@ export async function PATCH(req: Request, ctx: Ctx) {
     data.n = body.rows.length;
   }
 
+  // Edited rows of blob-backed datasets are re-uploaded to Blob directly from
+  // the browser; the PATCH carries only the new URL (+ row count).
+  let oldRowsBlobUrl: string | null = null;
+  if (typeof body.rowsBlobUrl === "string") {
+    if (!access.dataset.rowsBlobUrl) {
+      return NextResponse.json(
+        { error: "rowsBlobUrl is only valid for blob-stored datasets." },
+        { status: 400 }
+      );
+    }
+    if (!isBlobUrl(body.rowsBlobUrl)) {
+      return NextResponse.json({ error: "Invalid rowsBlobUrl" }, { status: 400 });
+    }
+    data.rowsBlobUrl = body.rowsBlobUrl;
+    if (typeof body.n === "number" && Number.isInteger(body.n) && body.n >= 0) data.n = body.n;
+    if (body.rowsBlobUrl !== access.dataset.rowsBlobUrl) {
+      oldRowsBlobUrl = access.dataset.rowsBlobUrl;
+    }
+  }
+
   if (Object.keys(data).length === 0) {
     return NextResponse.json({ error: "Nothing to update" }, { status: 400 });
   }
@@ -109,9 +131,11 @@ export async function PATCH(req: Request, ctx: Ctx) {
     select: { id: true, name: true, n: true },
   });
 
+  if (oldRowsBlobUrl) await deleteRowsBlob(oldRowsBlobUrl);
+
   // Data or schema changed — drop now-orphaned cached analysis results.
   // (paramsHash already prevents stale hits; this just stops dead rows accumulating.)
-  if (data.rows !== undefined || data.schema !== undefined) {
+  if (data.rows !== undefined || data.schema !== undefined || data.rowsBlobUrl !== undefined) {
     await db.analysisResult.deleteMany({ where: { datasetId: id } }).catch(() => {});
   }
 

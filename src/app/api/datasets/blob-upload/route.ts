@@ -6,7 +6,11 @@ import { getSessionUser } from "@/lib/auth";
 // DIRECTLY to Vercel Blob — bypassing the ~4.5 MB function request-body cap.
 // The uploaded blob's URL is then sent to POST /api/datasets for ingestion.
 
-const MAX_UPLOAD_BYTES = 100 * 1024 * 1024; // 100 MB raw CSV
+// Uploads are processed rows JSON, which repeats every column key per row and
+// typically runs 2–4× the raw CSV size. The real input cap (100 MB CSV / 1M
+// rows) is enforced in uploadCsvAsDataset before upload; this just needs
+// headroom for the JSON inflation.
+const MAX_UPLOAD_BYTES = 500 * 1024 * 1024; // 500 MB rows JSON
 
 export async function POST(req: Request) {
   if (!process.env.BLOB_READ_WRITE_TOKEN) {
@@ -26,14 +30,16 @@ export async function POST(req: Request) {
         const user = await getSessionUser();
         if (!user) throw new Error("Unauthorized");
         return {
-          allowedContentTypes: ["text/csv", "text/plain", "application/vnd.ms-excel", "application/octet-stream"],
+          // application/json: edited rows of blob-backed datasets re-uploaded from the workbench
+          allowedContentTypes: ["text/csv", "text/plain", "application/vnd.ms-excel", "application/octet-stream", "application/json"],
           maximumSizeInBytes: MAX_UPLOAD_BYTES,
           addRandomSuffix: true,
           tokenPayload: user.userId,
         };
       },
-      // Ingestion happens via POST /api/datasets with the blob URL; nothing to do here.
-      onUploadCompleted: async () => {},
+      // No onUploadCompleted: ingestion happens via POST /api/datasets with the
+      // blob URL, and providing the callback makes the SDK require a publicly
+      // reachable callbackUrl — which breaks client uploads in local dev.
     });
 
     return NextResponse.json(result);

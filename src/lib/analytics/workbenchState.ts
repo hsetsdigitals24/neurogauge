@@ -21,6 +21,8 @@ export interface WorkbenchState {
   importedRows: Record<string, unknown>[];
   /** Definitions of user-created computed columns (materialised into rows). */
   computedColumns: ComputedColumnDef[];
+  /** Bumped by every row-mutating action; the shell persists rows when it changes. */
+  rowsRevision: number;
 }
 
 export type WorkbenchAction =
@@ -35,7 +37,24 @@ export type WorkbenchAction =
   | { type: "setColumnType"; col: string; columnType: ColumnType }
   | { type: "addComputedColumn"; def: ComputedColumnDef }
   | { type: "removeComputedColumn"; key: string }
+  | { type: "editCell"; rowRef: Record<string, unknown>; col: string; value: string }
+  | { type: "addRow" }
+  | { type: "deleteRow"; rowRef: Record<string, unknown> }
+  | { type: "addColumn"; key: string; label: string; columnType: ColumnType }
+  | { type: "deleteColumn"; col: string }
   | { type: "reset" };
+
+/** Coerce an edited cell's raw input by the column's schema type (mirrors CSV ingest):
+ *  trimmed "" → null; numeric columns parse to Number (non-numeric input kept as string). */
+function coerceCellValue(raw: string, type: ColumnType | undefined): unknown {
+  const trimmed = raw.trim();
+  if (trimmed === "") return null;
+  if (type === "numeric") {
+    const num = Number(trimmed);
+    return Number.isFinite(num) ? num : trimmed;
+  }
+  return trimmed;
+}
 
 export function makeInitialState(
   rows: Record<string, unknown>[],
@@ -53,6 +72,7 @@ export function makeInitialState(
     visibleColumns: Object.keys(schema),
     importedRows: [],
     computedColumns,
+    rowsRevision: 0,
   };
 }
 
@@ -102,6 +122,7 @@ export function workbenchReducer(
           ? state.visibleColumns
           : [...state.visibleColumns, def.key],
         computedColumns: [...state.computedColumns.filter((c) => c.key !== def.key), def],
+        rowsRevision: state.rowsRevision + 1,
       };
     }
     case "removeComputedColumn": {
@@ -120,6 +141,62 @@ export function workbenchReducer(
         schema: restSchema,
         visibleColumns: state.visibleColumns.filter((c) => c !== key),
         computedColumns: state.computedColumns.filter((c) => c.key !== key),
+        rowsRevision: state.rowsRevision + 1,
+      };
+    }
+    case "editCell": {
+      const value = coerceCellValue(action.value, state.schema[action.col]?.type);
+      const replace = (r: Record<string, unknown>) =>
+        r === action.rowRef ? { ...r, [action.col]: value } : r;
+      return {
+        ...state,
+        rows: state.rows.map(replace),
+        importedRows: state.importedRows.map(replace),
+        rowsRevision: state.rowsRevision + 1,
+      };
+    }
+    case "addRow": {
+      const blank: Record<string, unknown> = {};
+      for (const key of Object.keys(state.schema)) blank[key] = null;
+      let row = blank;
+      for (const def of state.computedColumns) {
+        row = { ...row, [def.key]: computeColumnForRows([row], def)[0] };
+      }
+      return { ...state, rows: [...state.rows, row], rowsRevision: state.rowsRevision + 1 };
+    }
+    case "deleteRow":
+      return {
+        ...state,
+        rows: state.rows.filter((r) => r !== action.rowRef),
+        importedRows: state.importedRows.filter((r) => r !== action.rowRef),
+        rowsRevision: state.rowsRevision + 1,
+      };
+    case "addColumn": {
+      if (state.schema[action.key]) return state;
+      return {
+        ...state,
+        schema: { ...state.schema, [action.key]: { type: action.columnType, label: action.label } },
+        visibleColumns: [...state.visibleColumns, action.key],
+      };
+    }
+    case "deleteColumn": {
+      const { col } = action;
+      const strip = (r: Record<string, unknown>) => {
+        const { [col]: _omit, ...rest } = r;
+        void _omit;
+        return rest;
+      };
+      const { [col]: _s, ...restSchema } = state.schema;
+      void _s;
+      return {
+        ...state,
+        rows: state.rows.map(strip),
+        importedRows: state.importedRows.map(strip),
+        schema: restSchema,
+        visibleColumns: state.visibleColumns.filter((c) => c !== col),
+        computedColumns: state.computedColumns.filter((c) => c.key !== col),
+        sortCol: state.sortCol === col ? null : state.sortCol,
+        rowsRevision: state.rowsRevision + 1,
       };
     }
     case "reset":
