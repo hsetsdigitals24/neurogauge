@@ -7,6 +7,7 @@ import {
   ArrowLeft, Copy, Check, Users, Plus, Trash2, X,
   ChevronDown, ChevronUp, FlaskConical, ExternalLink, Download,
   Link2Icon,
+  ChevronLeft,
 } from "lucide-react";
 import { CustomQuestion, Level, SHAPE_LIBRARY, StimulusType, StudyConfig } from "@/lib/types";
 import { summarize } from "@/lib/scoring";
@@ -184,6 +185,9 @@ export default function ProjectDetailPage() {
 
   return (
     <main className="min-h-screen px-6 md:px-10 pb-20 max-w-5xl mx-auto w-full">
+      <span className="flex items-center gap-2 text-sm text-[color:var(--muted)] hover:text-[color:var(--fg)] cursor-pointer" onClick={() => router.back()}>
+        <ChevronLeft className="w-5 h-5" /> Back
+      </span>
       <motion.div initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} className="mt-8">
           <div className="flex items-start justify-between gap-4 flex-wrap">
             <div>
