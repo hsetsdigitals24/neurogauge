@@ -3,8 +3,12 @@ import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { motion } from "framer-motion";
-import { Database, Upload, Trash2, ChevronRight, ArrowLeft, Loader2, Table2 } from "lucide-react";
-import { uploadCsvAsDataset } from "@/lib/analytics/uploadDataset";
+import { Database, Upload, Trash2, ChevronRight, ArrowLeft, Loader2, Table2, X } from "lucide-react";
+import { uploadCsvAsDataset, uploadSheetAsDataset } from "@/lib/analytics/uploadDataset";
+import { isSpreadsheetFile, readWorkbook } from "@/lib/analytics/spreadsheetParser";
+
+const UPLOAD_ACCEPT =
+  ".csv,.xlsx,.xls,.xlsm,.ods,text/csv,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,application/vnd.ms-excel";
 
 interface DatasetRow {
   id: string;
@@ -22,6 +26,7 @@ export default function DatasetsPage() {
   const [uploading, setUploading] = useState(false);
   const [progress, setProgress] = useState<number | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [pendingWorkbook, setPendingWorkbook] = useState<{ file: File; sheetNames: string[] } | null>(null);
   const inputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
@@ -36,10 +41,47 @@ export default function DatasetsPage() {
 
   async function handleFile(file: File) {
     setError(null);
+    if (isSpreadsheetFile(file)) {
+      // Inspect sheets first; let the user pick when there is more than one tab.
+      setUploading(true);
+      setProgress(null);
+      try {
+        const wb = await readWorkbook(file);
+        if (wb.sheetNames.length === 0) throw new Error("Workbook has no sheets.");
+        if (wb.sheetNames.length === 1) {
+          await uploadSheet(file, wb.sheetNames[0]);
+        } else {
+          setUploading(false);
+          setPendingWorkbook({ file, sheetNames: wb.sheetNames });
+        }
+      } catch (e) {
+        setError(e instanceof Error ? e.message : "Could not read spreadsheet");
+        setUploading(false);
+        setProgress(null);
+      }
+      return;
+    }
     setUploading(true);
     setProgress(null);
     try {
       const created = await uploadCsvAsDataset(file, {
+        onProgress: (pct) => setProgress(Math.round(pct)),
+      });
+      router.push(`/dashboard/datasets/${created.id}/analytics`);
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Upload failed");
+      setUploading(false);
+      setProgress(null);
+    }
+  }
+
+  async function uploadSheet(file: File, sheetName: string) {
+    setError(null);
+    setPendingWorkbook(null);
+    setUploading(true);
+    setProgress(null);
+    try {
+      const created = await uploadSheetAsDataset(file, sheetName, {
         onProgress: (pct) => setProgress(Math.round(pct)),
       });
       router.push(`/dashboard/datasets/${created.id}/analytics`);
@@ -71,7 +113,7 @@ export default function DatasetsPage() {
               Your <span className="gradient-text">datasets</span>
             </h1>
             <p className="text-[color:var(--muted)] mt-1 text-sm">
-              Upload any CSV and analyse it in the workbench — columns and types are fully editable.
+              Upload any CSV or Excel spreadsheet and analyse it in the workbench — columns and types are fully editable.
             </p>
           </div>
           <button
@@ -80,12 +122,12 @@ export default function DatasetsPage() {
             onClick={() => inputRef.current?.click()}
           >
             {uploading ? <Loader2 className="w-4 h-4 animate-spin" /> : <Upload className="w-4 h-4" />}
-            {uploading ? (progress != null ? `Uploading… ${progress}%` : "Uploading…") : "Upload CSV"}
+            {uploading ? (progress != null ? `Uploading… ${progress}%` : "Uploading…") : "Upload data"}
           </button>
           <input
             ref={inputRef}
             type="file"
-            accept=".csv,text/csv"
+            accept={UPLOAD_ACCEPT}
             className="hidden"
             onChange={(e) => {
               const f = e.target.files?.[0];
@@ -110,10 +152,10 @@ export default function DatasetsPage() {
             <Database className="w-12 h-12 mx-auto text-[color:var(--muted)] mb-4" />
             <h2 className="text-xl font-bold">No datasets yet</h2>
             <p className="text-sm text-[color:var(--muted)] mt-2 mb-6">
-              Upload a CSV to start analysing arbitrary data.
+              Upload a CSV or Excel spreadsheet to start analysing arbitrary data.
             </p>
             <button className="btn btn-primary" disabled={uploading} onClick={() => inputRef.current?.click()}>
-              Upload CSV
+              Upload data
             </button>
           </motion.div>
         )}
@@ -157,6 +199,38 @@ export default function DatasetsPage() {
           </div>
         )}
       </main>
+
+      {pendingWorkbook && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm p-4">
+          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-sm flex flex-col">
+            <div className="flex items-center justify-between px-5 py-4 border-b border-[color:var(--border)]">
+              <h2 className="font-bold text-base">Choose a sheet</h2>
+              <button className="btn btn-ghost p-1" onClick={() => setPendingWorkbook(null)}>
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+            <div className="p-5">
+              <p className="text-sm text-[color:var(--muted)] mb-3">
+                This workbook has {pendingWorkbook.sheetNames.length} sheets. Pick the one to import.
+              </p>
+              <div className="flex flex-col gap-2 max-h-72 overflow-y-auto">
+                {pendingWorkbook.sheetNames.map((name) => (
+                  <button
+                    key={name}
+                    className="btn btn-ghost justify-between text-sm border border-[color:var(--border)] hover:border-indigo-400"
+                    onClick={() => uploadSheet(pendingWorkbook.file, name)}
+                  >
+                    <span className="flex items-center gap-2 truncate">
+                      <Table2 className="w-4 h-4 shrink-0" /> {name}
+                    </span>
+                    <ChevronRight className="w-4 h-4 text-[color:var(--muted)] shrink-0" />
+                  </button>
+                ))}
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

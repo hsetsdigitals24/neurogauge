@@ -11,6 +11,8 @@
 import { upload } from "@vercel/blob/client";
 import { parseCsv } from "./csvParser";
 import { sanitiseHeaders, inferSchema, remapRows } from "./csvIngest";
+import { readWorkbook } from "./spreadsheetParser";
+import type { ColumnSchema } from "./dataset";
 
 export const MAX_CSV_BYTES = 100 * 1024 * 1024; // 100 MB raw CSV
 export const MAX_ROWS = 1_000_000;
@@ -34,17 +36,58 @@ export async function uploadCsvAsDataset(
 
   const text = await file.text();
   const { headers, rows: rawRows } = parseCsv(text);
+  const { schema, rows } = ingest(headers, rawRows);
+  const name = stripDatasetExtension(file.name);
+  return finishUpload(name, schema, rows, opts);
+}
+
+/**
+ * Create a dataset from one sheet of an Excel/ODS workbook. The file is parsed
+ * IN THE BROWSER (SheetJS); only parsed rows + schema reach the server — the
+ * raw spreadsheet is never uploaded.
+ */
+export async function uploadSheetAsDataset(
+  file: File,
+  sheetName: string,
+  opts: { projectId?: string | null; onProgress?: (percent: number) => void } = {}
+): Promise<CreatedDataset> {
+  if (file.size > MAX_CSV_BYTES) {
+    throw new Error(`File too large (max ${Math.round(MAX_CSV_BYTES / 1024 / 1024)} MB).`);
+  }
+  const wb = await readWorkbook(file);
+  const { headers, rows: rawRows } = wb.parseSheet(sheetName);
+  const { schema, rows } = ingest(headers, rawRows);
+  const name = stripDatasetExtension(file.name);
+  return finishUpload(name, schema, rows, opts);
+}
+
+function stripDatasetExtension(fileName: string): string {
+  return fileName.replace(/\.(csv|xlsx?|xlsm|ods)$/i, "");
+}
+
+/** Sanitise + schema-infer parsed `{ headers, rows }` (shared by CSV + Excel). */
+function ingest(
+  headers: string[],
+  rawRows: Record<string, unknown>[]
+): { schema: Record<string, ColumnSchema>; rows: Record<string, unknown>[] } {
   if (headers.length === 0) throw new Error("File appears empty or has no header row.");
   if (rawRows.length === 0) throw new Error("No data rows found.");
   if (rawRows.length > MAX_ROWS) {
     throw new Error(`Too many rows (max ${MAX_ROWS.toLocaleString()}).`);
   }
-
   const columns = sanitiseHeaders(headers);
   const rows = remapRows(rawRows, columns, headers);
   const schema = inferSchema(rows, columns);
+  return { schema, rows };
+}
 
-  const name = file.name.replace(/\.csv$/i, "");
+/** Send parsed rows + schema to the API, going via Blob when the rows JSON is large. */
+async function finishUpload(
+  name: string,
+  schema: Record<string, ColumnSchema>,
+  rows: Record<string, unknown>[],
+  opts: { projectId?: string | null; onProgress?: (percent: number) => void }
+): Promise<CreatedDataset> {
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const body: Record<string, any> = { name, schema, n: rows.length };
   if (opts.projectId) body.projectId = opts.projectId;
