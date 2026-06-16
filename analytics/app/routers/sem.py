@@ -8,6 +8,7 @@ from app import VERSION
 from app.deps import require_secret
 from app.schemas.common import AnalysisRequest, AnalysisResponse, Meta, PlotSpec, TableBlock
 from app.core.csv_io import df_to_table
+from app.core.plots import path_diagram_spec
 
 try:
     import semopy
@@ -158,11 +159,21 @@ def run_sem(req: AnalysisRequest) -> AnalysisResponse:
     ])
     table = df_to_table(table_df) if not table_df.empty else {"csv": "", "headers": [], "rows": []}
 
+    plots: list[PlotSpec] = []
+    try:
+        if coef_rows:
+            plots.append(PlotSpec(
+                type="path_diagram",
+                plotly=path_diagram_spec(coef_rows, title="SEM path diagram"),
+            ))
+    except Exception as exc:
+        warnings.append(f"Path diagram could not be rendered: {exc}")
+
     duration_ms = int((time.perf_counter() - started) * 1000)
     return AnalysisResponse(
         stats=stats_out,
         table=TableBlock(**table),
-        plots=[],
+        plots=plots,
         warnings=warnings,
         meta=Meta(n=len(df), duration_ms=duration_ms, version=VERSION),
     )

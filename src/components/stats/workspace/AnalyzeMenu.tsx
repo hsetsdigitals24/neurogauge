@@ -34,6 +34,10 @@ const MENU: { group: string; items: { key: DialogKey; label: string }[] }[] = [
     { key: "omega", label: "McDonald's ω" },
     { key: "roc", label: "ROC / AUC" },
   ]},
+  { group: "Psychometrics", items: [
+    { key: "factor", label: "Factor analysis (EFA)" },
+    { key: "irt", label: "Item response (IRT)" },
+  ]},
   { group: "Effect size", items: [
     { key: "effectsize", label: "Cohen d / η² / OR" },
   ]},

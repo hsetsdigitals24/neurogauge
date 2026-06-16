@@ -325,6 +325,304 @@ def coefficient_forest_spec(
     }
 
 
+def confusion_matrix_spec(
+    tp: int,
+    tn: int,
+    fp: int,
+    fn: int,
+    labels: tuple[str, str] = ("Negative", "Positive"),
+    title: str = "Confusion matrix",
+) -> dict[str, Any]:
+    """2x2 confusion matrix as an annotated heatmap.
+
+    Rows = actual, columns = predicted. z is [[TN, FP], [FN, TP]].
+    """
+    neg, pos = labels
+    z = [[tn, fp], [fn, tp]]
+    x_labels = [f"Pred {neg}", f"Pred {pos}"]
+    y_labels = [f"Actual {neg}", f"Actual {pos}"]
+    annotations: list[dict[str, Any]] = []
+    for i, row in enumerate(z):
+        for j, v in enumerate(row):
+            annotations.append({
+                "x": x_labels[j],
+                "y": y_labels[i],
+                "text": str(int(v)),
+                "showarrow": False,
+                "font": {"color": "#111827", "size": 16},
+            })
+    return {
+        "data": [{
+            "type": "heatmap",
+            "x": x_labels,
+            "y": y_labels,
+            "z": z,
+            "colorscale": [[0, "#ffffff"], [1, "#6366f1"]],
+            "showscale": True,
+        }],
+        "layout": {
+            "title": {"text": title},
+            "xaxis": {"side": "bottom"},
+            "yaxis": {"autorange": "reversed"},
+            "annotations": annotations,
+        },
+    }
+
+
+def pie_spec(labels: list[str], values: list[float], title: str = "Distribution") -> dict[str, Any]:
+    """Pie chart of category frequencies."""
+    palette = ["#6366f1", "#ef4444", "#10b981", "#f59e0b", "#8b5cf6", "#06b6d4", "#ec4899", "#84cc16"]
+    return {
+        "data": [{
+            "type": "pie",
+            "labels": labels,
+            "values": values,
+            "textinfo": "label+percent",
+            "hovertemplate": "%{label}<br>%{value} (%{percent})<extra></extra>",
+            "marker": {"colors": [palette[i % len(palette)] for i in range(len(labels))]},
+        }],
+        "layout": {
+            "title": {"text": title},
+            "margin": {"l": 40, "r": 40, "t": 50, "b": 40},
+        },
+    }
+
+
+def radar_spec(
+    categories: list[str],
+    series_by_group: dict[str, list[float]],
+    title: str = "Profile",
+) -> dict[str, Any]:
+    """Radar / spider chart. One scatterpolar trace per group over the shared categories."""
+    palette = ["#6366f1", "#ef4444", "#10b981", "#f59e0b", "#8b5cf6", "#06b6d4", "#ec4899", "#84cc16"]
+    traces: list[dict[str, Any]] = []
+    for i, (label, vals) in enumerate(series_by_group.items()):
+        closed_theta = categories + categories[:1]
+        closed_r = list(vals) + list(vals[:1])
+        color = palette[i % len(palette)]
+        traces.append({
+            "type": "scatterpolar",
+            "r": closed_r,
+            "theta": closed_theta,
+            "name": label,
+            "fill": "toself",
+            "line": {"color": color},
+            "opacity": 0.7,
+        })
+    return {
+        "data": traces,
+        "layout": {
+            "title": {"text": title},
+            "polar": {"radialaxis": {"visible": True}},
+            "showlegend": len(series_by_group) > 1,
+            "margin": {"l": 60, "r": 60, "t": 60, "b": 40},
+        },
+    }
+
+
+def line_trend_spec(
+    x_labels: list[str],
+    series_by_group: dict[str, dict[str, list[float]]],
+    title: str,
+    y_label: str,
+) -> dict[str, Any]:
+    """Longitudinal trend / growth curve. mean ± CI line per group over ordered x.
+
+    series_by_group: {group_label: {"mean": [...], "ci_low": [...], "ci_high": [...]}}.
+    """
+    palette = ["#6366f1", "#ef4444", "#10b981", "#f59e0b", "#8b5cf6", "#06b6d4", "#ec4899", "#84cc16"]
+    traces: list[dict[str, Any]] = []
+    for i, (label, s) in enumerate(series_by_group.items()):
+        color = palette[i % len(palette)]
+        means = s["mean"]
+        err_plus = [hi - m for hi, m in zip(s["ci_high"], means)]
+        err_minus = [m - lo for lo, m in zip(s["ci_low"], means)]
+        traces.append({
+            "type": "scatter",
+            "mode": "lines+markers",
+            "x": x_labels,
+            "y": means,
+            "name": label or y_label,
+            "line": {"color": color, "width": 2},
+            "marker": {"color": color, "size": 7},
+            "error_y": {
+                "type": "data",
+                "symmetric": False,
+                "array": err_plus,
+                "arrayminus": err_minus,
+                "color": color,
+                "thickness": 1,
+                "width": 5,
+            },
+        })
+    return {
+        "data": traces,
+        "layout": {
+            "title": {"text": title},
+            "xaxis": {"title": {"text": "time"}},
+            "yaxis": {"title": {"text": y_label}},
+            "showlegend": len(series_by_group) > 1,
+        },
+    }
+
+
+def scree_spec(eigenvalues: list[float], title: str = "Scree plot") -> dict[str, Any]:
+    """Scree plot of eigenvalues with a Kaiser = 1.0 reference line."""
+    factors = list(range(1, len(eigenvalues) + 1))
+    return {
+        "data": [
+            {
+                "type": "scatter",
+                "mode": "lines+markers",
+                "x": factors,
+                "y": eigenvalues,
+                "name": "eigenvalue",
+                "line": {"color": "#6366f1", "width": 2},
+                "marker": {"color": "#6366f1", "size": 8},
+            },
+            {
+                "type": "scatter",
+                "mode": "lines",
+                "x": [factors[0], factors[-1]] if factors else [1, 1],
+                "y": [1.0, 1.0],
+                "name": "Kaiser (=1)",
+                "line": {"color": "#ef4444", "width": 1.5, "dash": "dash"},
+            },
+        ],
+        "layout": {
+            "title": {"text": title},
+            "xaxis": {"title": {"text": "factor / component"}, "dtick": 1},
+            "yaxis": {"title": {"text": "eigenvalue"}},
+            "showlegend": True,
+        },
+    }
+
+
+def icc_spec(
+    theta: list[float],
+    item_curves: dict[str, list[float]],
+    title: str = "Item characteristic curves",
+) -> dict[str, Any]:
+    """IRT item characteristic curves: P(correct | θ) for each item over the θ grid."""
+    palette = ["#6366f1", "#ef4444", "#10b981", "#f59e0b", "#8b5cf6", "#06b6d4", "#ec4899", "#84cc16"]
+    traces: list[dict[str, Any]] = []
+    for i, (name, probs) in enumerate(item_curves.items()):
+        traces.append({
+            "type": "scatter",
+            "mode": "lines",
+            "x": theta,
+            "y": probs,
+            "name": name,
+            "line": {"color": palette[i % len(palette)], "width": 2},
+        })
+    return {
+        "data": traces,
+        "layout": {
+            "title": {"text": title},
+            "xaxis": {"title": {"text": "ability (θ)"}},
+            "yaxis": {"title": {"text": "P(correct)"}, "range": [0, 1]},
+            "showlegend": True,
+        },
+    }
+
+
+def path_diagram_spec(
+    coef_rows: list[dict[str, Any]],
+    title: str = "Path diagram",
+) -> dict[str, Any]:
+    """SEM/CFA path diagram built from semopy coefficient rows.
+
+    Each row: {"lval", "op", "rval", "estimate", ...}. Latents are positioned in a centre
+    column, observed variables on the outer columns; edges are drawn as arrow annotations
+    labelled with the (standardised) estimate. Variance rows ("~~") are skipped.
+    """
+    # Edges: loadings (indicator ~ Factor) and structural regressions (y ~ x). Skip ~~.
+    edges = [r for r in coef_rows if r.get("op") in {"~", "=~"}]
+    # Identify latent vs observed: latents are factors that load on indicators.
+    latents: set[str] = set()
+    for r in edges:
+        if r.get("op") == "=~":
+            latents.add(str(r["lval"]))
+        elif r.get("op") == "~":
+            # indicator ~ Factor (semopy loadings) → rval is the latent
+            latents.add(str(r["rval"]))
+    # Refine: a node is latent only if it never appears as an indicator's lval target
+    indicators = {str(r["lval"]) for r in edges if str(r.get("rval")) in latents}
+    latents -= indicators
+
+    nodes = []
+    for r in edges:
+        nodes.extend([str(r["lval"]), str(r["rval"])])
+    nodes = list(dict.fromkeys(nodes))
+    obs = [n for n in nodes if n not in latents]
+
+    pos: dict[str, tuple[float, float]] = {}
+    if latents:
+        lat_list = list(latents)
+        for i, n in enumerate(lat_list):
+            pos[n] = (0.5, 1.0 - (i + 1) / (len(lat_list) + 1))
+        for i, n in enumerate(obs):
+            pos[n] = (0.05 if i % 2 == 0 else 0.95, 1.0 - (i + 1) / (len(obs) + 1))
+    else:
+        # purely structural model: lay observed nodes on a circle
+        import math
+        for i, n in enumerate(nodes):
+            ang = 2 * math.pi * i / max(1, len(nodes))
+            pos[n] = (0.5 + 0.4 * math.cos(ang), 0.5 + 0.4 * math.sin(ang))
+
+    node_x = [pos[n][0] for n in nodes]
+    node_y = [pos[n][1] for n in nodes]
+    node_color = ["#6366f1" if n in latents else "#10b981" for n in nodes]
+    node_symbol = ["circle" if n in latents else "square" for n in nodes]
+
+    annotations: list[dict[str, Any]] = []
+    for r in edges:
+        src = str(r["rval"])
+        dst = str(r["lval"])
+        if src not in pos or dst not in pos:
+            continue
+        est = r.get("estimate")
+        annotations.append({
+            "x": pos[dst][0], "y": pos[dst][1],
+            "ax": pos[src][0], "ay": pos[src][1],
+            "xref": "x", "yref": "y", "axref": "x", "ayref": "y",
+            "showarrow": True, "arrowhead": 3, "arrowsize": 1.2,
+            "arrowwidth": 1.5, "arrowcolor": "#6b7280",
+            "text": "" if est is None else f"{est:.2f}",
+            "font": {"size": 10, "color": "#374151"},
+            "standoff": 12, "startstandoff": 12,
+        })
+    # Node labels
+    for n in nodes:
+        annotations.append({
+            "x": pos[n][0], "y": pos[n][1], "xref": "x", "yref": "y",
+            "text": f"<b>{n}</b>", "showarrow": False,
+            "font": {"size": 11, "color": "#111827"},
+            "yshift": 18,
+        })
+
+    return {
+        "data": [{
+            "type": "scatter",
+            "mode": "markers",
+            "x": node_x,
+            "y": node_y,
+            "marker": {"color": node_color, "size": 26, "symbol": node_symbol,
+                       "line": {"color": "#374151", "width": 1}},
+            "hovertext": nodes,
+            "hoverinfo": "text",
+        }],
+        "layout": {
+            "title": {"text": title},
+            "xaxis": {"visible": False, "range": [-0.1, 1.1]},
+            "yaxis": {"visible": False, "range": [-0.1, 1.1]},
+            "annotations": annotations,
+            "showlegend": False,
+            "margin": {"l": 30, "r": 30, "t": 50, "b": 30},
+        },
+    }
+
+
 def qq_plot_spec(values: list[float], title: str = "Normal Q–Q plot") -> dict[str, Any]:
     arr = np.asarray(values, dtype=float)
     arr = arr[~np.isnan(arr)]

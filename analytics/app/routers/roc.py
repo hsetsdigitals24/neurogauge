@@ -9,7 +9,7 @@ from app import VERSION
 from app.deps import require_secret
 from app.schemas.common import AnalysisRequest, AnalysisResponse, Meta, PlotSpec, TableBlock
 from app.core.csv_io import df_to_table
-from app.core.plots import roc_curve_spec
+from app.core.plots import roc_curve_spec, confusion_matrix_spec
 
 router = APIRouter(tags=["roc"], dependencies=[Depends(require_secret)])
 
@@ -137,11 +137,25 @@ def roc(req: AnalysisRequest) -> AnalysisResponse:
 
     table = df_to_table(pd.DataFrame(rows))
 
-    plots = [PlotSpec(
-        type="roc",
-        plotly=roc_curve_spec(fpr.tolist(), tpr.tolist(), auc,
-                              title=f"ROC — {score_col} vs {truth_col} (AUC={auc:.3f})"),
-    )]
+    # Confusion matrix at the optimal (Youden's J) threshold.
+    opt_pred = (scores >= best_threshold).astype(int)
+    opt_tp = int(((opt_pred == 1) & (y == 1)).sum())
+    opt_tn = int(((opt_pred == 0) & (y == 0)).sum())
+    opt_fp = int(((opt_pred == 1) & (y == 0)).sum())
+    opt_fn = int(((opt_pred == 0) & (y == 1)).sum())
+
+    plots = [
+        PlotSpec(
+            type="roc",
+            plotly=roc_curve_spec(fpr.tolist(), tpr.tolist(), auc,
+                                  title=f"ROC — {score_col} vs {truth_col} (AUC={auc:.3f})"),
+        ),
+        PlotSpec(
+            type="confusion_matrix",
+            plotly=confusion_matrix_spec(opt_tp, opt_tn, opt_fp, opt_fn,
+                                         title=f"Confusion matrix (optimal threshold = {best_threshold:.3g})"),
+        ),
+    ]
 
     duration_ms = int((time.perf_counter() - started) * 1000)
     return AnalysisResponse(

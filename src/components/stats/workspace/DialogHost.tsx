@@ -47,6 +47,8 @@ const TITLE: Record<DialogKey, string> = {
   wilcoxon: "Wilcoxon signed-rank test",
   "kruskal-wallis": "Kruskal–Wallis test",
   friedman: "Friedman test",
+  factor: "Factor analysis (EFA)",
+  irt: "Item response theory (IRT)",
   modelling: "Statistical modelling (GLM)",
   sem: "Structural equation modelling",
 };

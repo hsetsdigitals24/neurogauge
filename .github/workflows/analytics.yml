@@ -6,10 +6,7 @@ on:
     paths:
       - 'analytics/**'
       - '.github/workflows/analytics.yml'
-  pull_request:
-    paths:
-      - 'analytics/**'
-      - '.github/workflows/analytics.yml'
+  
 
 # A newer run on the same ref supersedes an in-flight one.
 concurrency:

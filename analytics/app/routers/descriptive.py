@@ -8,7 +8,7 @@ from fastapi import APIRouter, Depends, HTTPException
 from app.deps import require_secret
 from app.schemas.common import AnalysisRequest, AnalysisResponse, Meta, PlotSpec, TableBlock
 from app.core.csv_io import df_to_table
-from app.core.plots import boxplot_spec, mean_ci_bar_spec
+from app.core.plots import boxplot_spec, mean_ci_bar_spec, pie_spec, radar_spec
 from app import VERSION
 
 router = APIRouter(tags=["descriptive"], dependencies=[Depends(require_secret)])
@@ -69,17 +69,18 @@ def descriptive(req: AnalysisRequest) -> AnalysisResponse:
     started = time.perf_counter()
 
     columns = req.variables.get("columns") or []
+    cat_columns = req.variables.get("cat_columns") or []
     group_by = req.variables.get("group_by")
     ci_level = float(req.options.get("ci_level", 0.95))
     if not (0 < ci_level < 1):
         raise HTTPException(400, "ci_level must be between 0 and 1")
-    if not columns:
-        raise HTTPException(400, "variables.columns must be a non-empty list")
+    if not columns and not cat_columns:
+        raise HTTPException(400, "provide variables.columns and/or variables.cat_columns")
 
     df = pd.DataFrame(req.data)
     if df.empty:
         raise HTTPException(400, "data is empty")
-    missing = [c for c in columns if c not in df.columns]
+    missing = [c for c in [*columns, *cat_columns] if c not in df.columns]
     if missing:
         raise HTTPException(400, f"columns not found in data: {missing}")
     if group_by and group_by not in df.columns:
@@ -138,10 +139,60 @@ def descriptive(req: AnalysisRequest) -> AnalysisResponse:
                 plotly=mean_ci_bar_spec(bar_rows, title=f"Mean ± CI — {col}", y_label=col),
             ))
 
+    # Radar / spider profile of group means across >= 3 numeric variables (z-scored so axes
+    # are comparable). Only meaningful when grouping, but rendered for the overall sample too.
+    if len(columns) >= 3:
+        z_means: dict[str, list[float]] = {}
+        norm: dict[str, tuple[float, float]] = {}
+        for col in columns:
+            arr = pd.to_numeric(df[col], errors="coerce")
+            norm[col] = (float(arr.mean()), float(arr.std(ddof=1)) or 1.0)
+        groups = df.groupby(group_by, dropna=False) if group_by else [("Overall", df)]
+        for grp, sub in groups:
+            vals = []
+            for col in columns:
+                m, sd = norm[col]
+                vals.append(round((float(pd.to_numeric(sub[col], errors="coerce").mean()) - m) / sd, 4))
+            z_means[str(grp)] = vals
+        plots.append(PlotSpec(
+            type="radar",
+            plotly=radar_spec(list(columns), z_means, title="Standardised profile (z-scores)"),
+        ))
+
+    # Categorical frequencies + pie charts.
+    cat_stats: dict[str, Any] = {}
+    for col in cat_columns:
+        counts = df[col].astype("string").fillna("(missing)").value_counts()
+        total = int(counts.sum())
+        labels = [str(k) for k in counts.index]
+        values = [int(v) for v in counts.values]
+        cat_stats[col] = {
+            "n": total,
+            "levels": [
+                {"value": lab, "count": v, "percent": round(100 * v / total, 2) if total else 0}
+                for lab, v in zip(labels, values)
+            ],
+        }
+        if values:
+            plots.append(PlotSpec(
+                type="pie",
+                plotly=pie_spec(labels, values, title=f"{col} — frequencies"),
+            ))
+    if cat_stats:
+        stats_out["categorical"] = cat_stats
+
     table_df = pd.DataFrame(rows)
     if not group_by:
         table_df = table_df.drop(columns=["group"], errors="ignore")
-    table = df_to_table(table_df)
+    if table_df.empty:
+        # Categorical-only request: build a frequency table instead.
+        freq_rows = [
+            {"variable": col, "value": lvl["value"], "count": lvl["count"], "percent": lvl["percent"]}
+            for col, cs in cat_stats.items() for lvl in cs["levels"]
+        ]
+        table = df_to_table(pd.DataFrame(freq_rows)) if freq_rows else {"csv": "", "headers": [], "rows": []}
+    else:
+        table = df_to_table(table_df)
 
     duration_ms = int((time.perf_counter() - started) * 1000)
     return AnalysisResponse(

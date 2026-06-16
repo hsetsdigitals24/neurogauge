@@ -10,7 +10,7 @@ from app import VERSION
 from app.deps import require_secret
 from app.schemas.common import AnalysisRequest, AnalysisResponse, Meta, PlotSpec, TableBlock
 from app.core.csv_io import df_to_table
-from app.core.plots import residuals_spec, coefficient_forest_spec, scatter_spec
+from app.core.plots import residuals_spec, coefficient_forest_spec, scatter_spec, confusion_matrix_spec
 
 router = APIRouter(tags=["regression"], dependencies=[Depends(require_secret)])
 
@@ -245,6 +245,11 @@ def logistic_regression(req: AnalysisRequest) -> AnalysisResponse:
                 title="Odds ratios with 95% CI",
                 x_label="odds ratio (log-spaced reference at 1)",
             ),
+        ),
+        PlotSpec(
+            type="confusion_matrix",
+            plotly=confusion_matrix_spec(tp, tn, fp, fn,
+                                         title="Confusion matrix (threshold = 0.5)"),
         ),
     ]
 

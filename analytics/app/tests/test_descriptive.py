@@ -50,6 +50,56 @@ def test_descriptive_grouped(client, auth_headers):
     assert len(bar["plotly"]["data"][0]["x"]) == 2
 
 
+def test_descriptive_categorical_pie(client, auth_headers):
+    rows = (
+        [{"x": float(v), "cat": "A"} for v in range(10)]
+        + [{"x": float(v), "cat": "B"} for v in range(5)]
+        + [{"x": float(v), "cat": "C"} for v in range(3)]
+    )
+    r = client.post(
+        "/v1/descriptive",
+        headers=auth_headers,
+        json={"data": rows, "variables": {"columns": ["x"], "cat_columns": ["cat"]}},
+    )
+    assert r.status_code == 200, r.text
+    body = r.json()
+    assert "categorical" in body["stats"]
+    assert body["stats"]["categorical"]["cat"]["n"] == 18
+    assert any(p["type"] == "pie" for p in body["plots"])
+
+
+def test_descriptive_radar(client, auth_headers):
+    import numpy as np
+    rng = np.random.default_rng(7)
+    rows = []
+    for g in ["A", "B"]:
+        shift = 0 if g == "A" else 3
+        for _ in range(20):
+            rows.append({"v1": float(rng.normal(shift, 1)), "v2": float(rng.normal(0, 1)),
+                         "v3": float(rng.normal(-shift, 1)), "grp": g})
+    r = client.post(
+        "/v1/descriptive",
+        headers=auth_headers,
+        json={"data": rows, "variables": {"columns": ["v1", "v2", "v3"], "group_by": "grp"}},
+    )
+    assert r.status_code == 200, r.text
+    radar = next(p for p in r.json()["plots"] if p["type"] == "radar")
+    assert len(radar["plotly"]["data"]) == 2  # one trace per group
+
+
+def test_descriptive_categorical_only(client, auth_headers):
+    rows = [{"cat": "A"}] * 4 + [{"cat": "B"}] * 6
+    r = client.post(
+        "/v1/descriptive",
+        headers=auth_headers,
+        json={"data": rows, "variables": {"cat_columns": ["cat"]}},
+    )
+    assert r.status_code == 200, r.text
+    body = r.json()
+    assert any(p["type"] == "pie" for p in body["plots"])
+    assert "variable" in body["table"]["headers"]
+
+
 def test_descriptive_missing_column(client, auth_headers):
     r = client.post(
         "/v1/descriptive",

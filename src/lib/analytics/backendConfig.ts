@@ -25,13 +25,15 @@ export const BACKEND_CONFIG: Partial<Record<DialogKey, BackendAnalysisConfig>> =
   descriptive: {
     endpoint: "descriptive",
     fields: [
-      { id: "columns", label: "Variables (one or more)", type: "column-numeric-multi", required: true },
+      { id: "columns", label: "Numeric variables", type: "column-numeric-multi", required: false },
+      { id: "cat_columns", label: "Categorical variables (counts + pie)", type: "column-any-multi", required: false },
       { id: "group_by", label: "Group by (optional)", type: "column-categorical", required: false },
       { id: "ci_level", label: "CI level", type: "select", choices: [["0.95", "95%"], ["0.99", "99%"], ["0.90", "90%"]], default: "0.95" },
     ],
     toPayload: (v) => ({
       variables: {
-        columns: v.columns,
+        ...(v.columns ? { columns: v.columns } : {}),
+        ...(v.cat_columns ? { cat_columns: v.cat_columns } : {}),
         ...(v.group_by ? { group_by: v.group_by } : {}),
       },
       options: { ci_level: parseFloat(v.ci_level as string) },
@@ -335,6 +337,57 @@ export const BACKEND_CONFIG: Partial<Record<DialogKey, BackendAnalysisConfig>> =
     toPayload: (v) => ({
       variables: { model: v.model },
       options: { alpha: parseFloat(v.alpha as string) },
+    }),
+  },
+
+  growth: {
+    endpoint: "growth",
+    fields: [
+      { id: "dv", label: "Measure (numeric)", type: "column-numeric", required: true },
+      { id: "time", label: "Time / occasion", type: "column-any", required: true },
+      { id: "subject", label: "Subject ID (optional)", type: "column-any", required: false },
+      { id: "group", label: "Group (optional)", type: "column-categorical", required: false },
+      { id: "ci_level", label: "CI level", type: "select", choices: [["0.95", "95%"], ["0.99", "99%"], ["0.90", "90%"]], default: "0.95" },
+    ],
+    toPayload: (v) => ({
+      variables: {
+        dv: v.dv,
+        time: v.time,
+        ...(v.subject ? { subject: v.subject } : {}),
+        ...(v.group ? { group: v.group } : {}),
+      },
+      options: { ci_level: parseFloat(v.ci_level as string) },
+    }),
+  },
+
+  factor: {
+    endpoint: "factor",
+    fields: [
+      { id: "items", label: "Items (3 or more numeric columns)", type: "column-numeric-multi", required: true },
+      { id: "n_factors", label: "Number of factors", type: "text", default: "auto", placeholder: "auto or an integer" },
+      { id: "rotation", label: "Rotation", type: "select", choices: [["varimax", "Varimax"], ["none", "None"]], default: "varimax" },
+    ],
+    toPayload: (v) => {
+      const nf = (v.n_factors as string)?.trim();
+      return {
+        variables: { items: v.items },
+        options: {
+          rotation: v.rotation,
+          n_factors: !nf || nf.toLowerCase() === "auto" ? "auto" : parseInt(nf, 10),
+        },
+      };
+    },
+  },
+
+  irt: {
+    endpoint: "irt",
+    fields: [
+      { id: "items", label: "Binary items (2 or more, 0/1 columns)", type: "column-numeric-multi", required: true },
+      { id: "model", label: "Model", type: "select", choices: [["2pl", "2PL (difficulty + discrimination)"], ["1pl", "1PL / Rasch"]], default: "2pl" },
+    ],
+    toPayload: (v) => ({
+      variables: { items: v.items },
+      options: { model: v.model },
     }),
   },
 };

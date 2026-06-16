@@ -63,7 +63,10 @@ function PlotWithDownload({ plot, index }: { plot: AnalysisResponse["plots"][num
             // eslint-disable-next-line @typescript-eslint/no-explicit-any
             ...(plot.plotly as any).layout,
             autosize: true,
-            margin: { l: 50, r: 20, t: 40, b: 50 },
+            // Respect a backend-provided margin (pie/radar/path diagrams need their own
+            // spacing); otherwise fall back to cartesian-friendly defaults.
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any
+            margin: (plot.plotly as any).layout?.margin ?? { l: 50, r: 20, t: 40, b: 50 },
             font: { size: 11 },
           }}
           style={{ width: "100%", minHeight: 260 }}
