@@ -43,25 +43,44 @@ def anova(req: AnalysisRequest) -> AnalysisResponse:
             raise HTTPException(400, f"column '{c}' not found")
 
     df[dv] = pd.to_numeric(df[dv], errors="coerce")
-    df = df.dropna(subset=[dv])
+    # Drop rows missing the dv OR any grouping/subject column — pingouin rejects NaNs in
+    # the factor/subject columns (e.g. a within factor that is entirely empty).
+    factor_cols = [*between, *([within] if within else []), *([subject] if subject else [])]
+    df = df.dropna(subset=[dv, *factor_cols])
+    if df.empty:
+        raise HTTPException(400, "no rows remain after dropping rows with missing dv / factor values")
+
+    # Each grouping factor must have at least 2 levels to compare.
+    for f in [*between, *([within] if within else [])]:
+        levels = df[f].nunique(dropna=True)
+        if levels < 2:
+            raise HTTPException(
+                400, f"factor '{f}' has {levels} level(s) after dropping missing values — need at least 2"
+            )
 
     plots: list[PlotSpec] = []
     warnings: list[str] = []
 
-    # Choose ANOVA flavor
-    if within:
-        if not subject:
-            raise HTTPException(400, "RM-ANOVA requires variables.subject (the within-subject id column)")
-        aov = pg.rm_anova(data=df, dv=dv, within=within, subject=subject, detailed=True)
-        title = f"Repeated-measures ANOVA — {dv} within {within}"
-    elif len(between) == 1:
-        aov = pg.anova(data=df, dv=dv, between=between[0], detailed=True)
-        title = f"One-way ANOVA — {dv} between {between[0]}"
-    elif len(between) == 2:
-        aov = pg.anova(data=df, dv=dv, between=between, detailed=True)
-        title = f"Two-way ANOVA — {dv} between {between[0]} × {between[1]}"
-    else:
-        raise HTTPException(400, "variables.between supports at most 2 factors")
+    # Choose ANOVA flavor. Wrap the fit so model-assumption failures surface as a clean
+    # 400 with pingouin's explanation instead of an opaque 500.
+    try:
+        if within:
+            if not subject:
+                raise HTTPException(400, "RM-ANOVA requires variables.subject (the within-subject id column)")
+            aov = pg.rm_anova(data=df, dv=dv, within=within, subject=subject, detailed=True)
+            title = f"Repeated-measures ANOVA — {dv} within {within}"
+        elif len(between) == 1:
+            aov = pg.anova(data=df, dv=dv, between=between[0], detailed=True)
+            title = f"One-way ANOVA — {dv} between {between[0]}"
+        elif len(between) == 2:
+            aov = pg.anova(data=df, dv=dv, between=between, detailed=True)
+            title = f"Two-way ANOVA — {dv} between {between[0]} × {between[1]}"
+        else:
+            raise HTTPException(400, "variables.between supports at most 2 factors")
+    except HTTPException:
+        raise
+    except Exception as exc:
+        raise HTTPException(400, f"ANOVA could not be computed: {exc}")
 
     # Build a clean stats table from the ANOVA result
     aov_rows = aov.to_dict(orient="records")

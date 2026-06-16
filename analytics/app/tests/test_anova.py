@@ -37,6 +37,25 @@ def test_two_way_anova(client, auth_headers):
     assert "f1" in sources and "f2" in sources
 
 
+def test_rm_anova_empty_within_factor(client, auth_headers):
+    # within factor entirely missing/null → clean 400, not a 500 (regression).
+    rows = [{"y": float(i), "cond": None, "sid": i % 10} for i in range(60)]
+    r = client.post("/v1/anova", headers=auth_headers, json={
+        "data": rows,
+        "variables": {"dv": "y", "within": "cond", "subject": "sid"},
+        "options": {"post_hoc": "bonferroni"},
+    })
+    assert r.status_code == 400, r.text
+
+
+def test_anova_single_level_factor(client, auth_headers):
+    rows = [{"y": float(i), "g": "only"} for i in range(30)]
+    r = client.post("/v1/anova", headers=auth_headers, json={
+        "data": rows, "variables": {"dv": "y", "between": "g"},
+    })
+    assert r.status_code == 400
+
+
 def test_anova_missing_dv(client, auth_headers):
     r = client.post("/v1/anova", headers=auth_headers, json={
         "data": [{"y": 1, "g": "A"}], "variables": {"between": "g"},
