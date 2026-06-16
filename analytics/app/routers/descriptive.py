@@ -21,11 +21,15 @@ def _describe_column(series: pd.Series, ci_level: float) -> dict[str, Any]:
         return {
             "n": 0, "mean": None, "median": None, "mode": None,
             "sd": None, "se": None, "min": None, "max": None,
+            "q1": None, "q3": None, "iqr": None,
             "ci_low": None, "ci_high": None,
         }
 
     mean = float(np.mean(arr))
     median = float(np.median(arr))
+    q1 = float(np.quantile(arr, 0.25))
+    q3 = float(np.quantile(arr, 0.75))
+    iqr = q3 - q1
     try:
         mode_res = stats.mode(arr, keepdims=False, nan_policy="omit")
         mode_val = float(mode_res.mode) if mode_res.count > 0 else None
@@ -52,6 +56,9 @@ def _describe_column(series: pd.Series, ci_level: float) -> dict[str, Any]:
         "se": round(se, 6),
         "min": float(np.min(arr)),
         "max": float(np.max(arr)),
+        "q1": round(q1, 6),
+        "q3": round(q3, 6),
+        "iqr": round(iqr, 6),
         "ci_low": round(ci_low, 6),
         "ci_high": round(ci_high, 6),
     }

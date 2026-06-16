@@ -43,6 +43,10 @@ const TITLE: Record<DialogKey, string> = {
   omega: "McDonald's ω",
   growth: "Growth curves",
   mediation: "Mediation analysis",
+  "mann-whitney": "Mann–Whitney U test",
+  wilcoxon: "Wilcoxon signed-rank test",
+  "kruskal-wallis": "Kruskal–Wallis test",
+  friedman: "Friedman test",
   modelling: "Statistical modelling (GLM)",
   sem: "Structural equation modelling",
 };

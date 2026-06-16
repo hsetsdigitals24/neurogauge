@@ -147,6 +147,63 @@ export const BACKEND_CONFIG: Partial<Record<DialogKey, BackendAnalysisConfig>> =
     }),
   },
 
+  "mann-whitney": {
+    endpoint: "mann-whitney",
+    fields: [
+      { id: "column", label: "Variable", type: "column-numeric", required: true },
+      { id: "group_by", label: "Group by (2 levels)", type: "column-categorical", required: true },
+      { id: "alpha", label: "α (significance)", type: "select", choices: [["0.05", "0.05"], ["0.01", "0.01"], ["0.10", "0.10"]], default: "0.05" },
+      { id: "alternative", label: "Alternative", type: "select", choices: [["two-sided", "Two-sided"], ["less", "Less"], ["greater", "Greater"]], default: "two-sided" },
+    ],
+    toPayload: (v) => ({
+      variables: { column: v.column, group_by: v.group_by },
+      options: { alpha: parseFloat(v.alpha as string), alternative: v.alternative },
+    }),
+  },
+
+  wilcoxon: {
+    endpoint: "wilcoxon",
+    fields: [
+      { id: "column_a", label: "First variable", type: "column-numeric", required: true },
+      { id: "column_b", label: "Second variable (paired)", type: "column-numeric", required: true },
+      { id: "alpha", label: "α (significance)", type: "select", choices: [["0.05", "0.05"], ["0.01", "0.01"], ["0.10", "0.10"]], default: "0.05" },
+      { id: "alternative", label: "Alternative", type: "select", choices: [["two-sided", "Two-sided"], ["less", "Less"], ["greater", "Greater"]], default: "two-sided" },
+    ],
+    toPayload: (v) => ({
+      variables: { column_a: v.column_a, column_b: v.column_b },
+      options: { alpha: parseFloat(v.alpha as string), alternative: v.alternative },
+    }),
+  },
+
+  "kruskal-wallis": {
+    endpoint: "kruskal-wallis",
+    fields: [
+      { id: "dv", label: "Dependent variable", type: "column-numeric", required: true },
+      { id: "between", label: "Group (3 or more levels)", type: "column-categorical", required: true },
+      { id: "post_hoc", label: "Post-hoc test", type: "select", choices: [["dunn", "Dunn (Bonferroni)"], ["none", "None"]], default: "dunn" },
+      { id: "alpha", label: "α", type: "select", choices: [["0.05", "0.05"], ["0.01", "0.01"], ["0.10", "0.10"]], default: "0.05" },
+    ],
+    toPayload: (v) => ({
+      variables: { dv: v.dv, between: v.between },
+      options: { post_hoc: v.post_hoc, alpha: parseFloat(v.alpha as string) },
+    }),
+  },
+
+  friedman: {
+    endpoint: "friedman",
+    fields: [
+      { id: "dv", label: "Dependent variable", type: "column-numeric", required: true },
+      { id: "within", label: "Within-subject factor (condition/time)", type: "column-categorical", required: true },
+      { id: "subject", label: "Subject / participant ID column", type: "column-any", required: true },
+      { id: "post_hoc", label: "Post-hoc test", type: "select", choices: [["wilcoxon", "Pairwise Wilcoxon (Bonferroni)"], ["none", "None"]], default: "wilcoxon" },
+      { id: "alpha", label: "α", type: "select", choices: [["0.05", "0.05"], ["0.01", "0.01"], ["0.10", "0.10"]], default: "0.05" },
+    ],
+    toPayload: (v) => ({
+      variables: { dv: v.dv, within: v.within, subject: v.subject },
+      options: { post_hoc: v.post_hoc, alpha: parseFloat(v.alpha as string) },
+    }),
+  },
+
   chisquare: {
     endpoint: "chi-square",
     fields: [

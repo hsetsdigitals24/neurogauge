@@ -18,6 +18,9 @@ def test_descriptive_basic(client, auth_headers):
     assert s["median"] == 5.5
     assert round(s["sd"], 4) == round(3.02765, 4)
     assert s["min"] == 1.0 and s["max"] == 10.0
+    assert s["q1"] is not None and s["q3"] is not None and s["iqr"] is not None
+    assert s["q3"] >= s["q1"]
+    assert round(s["iqr"], 6) == round(s["q3"] - s["q1"], 6)
     assert s["ci_low"] < s["mean"] < s["ci_high"]
     assert "csv" in body["table"]
     assert "variable" in body["table"]["headers"]

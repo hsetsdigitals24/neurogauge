@@ -14,6 +14,12 @@ const MENU: { group: string; items: { key: DialogKey; label: string }[] }[] = [
     { key: "anova2", label: "Two-way ANOVA" },
     { key: "rm-anova", label: "Repeated-measures ANOVA" },
   ]},
+  { group: "Non-parametric tests", items: [
+    { key: "mann-whitney", label: "Mann–Whitney U" },
+    { key: "wilcoxon", label: "Wilcoxon signed-rank" },
+    { key: "kruskal-wallis", label: "Kruskal–Wallis (+ Dunn)" },
+    { key: "friedman", label: "Friedman (+ pairwise Wilcoxon)" },
+  ]},
   { group: "Correlate", items: [
     { key: "correlation", label: "Pearson / Spearman" },
     { key: "chisquare", label: "Chi-square" },

@@ -34,6 +34,7 @@ export type DialogKey =
   | "descriptive" | "normality" | "ttest" | "anova" | "correlation" | "chisquare"
   | "regression" | "logistic" | "reliability" | "effectsize" | "roc"
   | "anova2" | "rm-anova" | "omega" | "growth" | "mediation"
+  | "mann-whitney" | "wilcoxon" | "kruskal-wallis" | "friedman"
   | "modelling" | "sem";
 
 export interface OutputEntry {
