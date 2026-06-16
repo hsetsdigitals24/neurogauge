@@ -31,6 +31,7 @@
     "react-dom": "19.2.4",
     "react-plotly.js": "^2.6.0",
     "simple-statistics": "^7.8.9",
+    "stream-json": "^1.9.1",
     "xlsx": "^0.18.5"
   },
   "devDependencies": {
@@ -39,6 +40,7 @@
     "@types/react": "^19",
     "@types/react-dom": "^19",
     "@types/react-plotly.js": "^2.6.4",
+    "@types/stream-json": "^1.7.8",
     "eslint": "^9",
     "eslint-config-next": "16.2.4",
     "tailwindcss": "^4",

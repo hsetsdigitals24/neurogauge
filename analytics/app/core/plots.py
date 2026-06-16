@@ -3,19 +3,46 @@ import numpy as np
 from scipy import stats
 
 
+def _downsample(arr: np.ndarray, max_points: int) -> np.ndarray:
+    """Evenly subsample a 1-D array to at most max_points, keeping the extremes.
+
+    Used to keep plot payloads bounded for large n (the data points are for display
+    only; statistics are always computed on the full sample upstream).
+    """
+    n = arr.size
+    if n <= max_points:
+        return arr
+    idx = np.linspace(0, n - 1, max_points).round().astype(int)
+    return arr[np.unique(idx)]
+
+
 def histogram_spec(values: list[float], title: str = "Distribution", bins: int = 30) -> dict[str, Any]:
     arr = np.asarray(values, dtype=float)
     arr = arr[~np.isnan(arr)]
-    traces: list[dict[str, Any]] = [
-        {
+    # For large n, pre-bin server-side and ship counts as a bar trace instead of all raw
+    # points (a histogram of 40k values would otherwise embed 40k numbers in the response).
+    if arr.size > 5000 and arr.size > 0 and np.ptp(arr) > 0:
+        counts, edges = np.histogram(arr, bins=bins)
+        centers = ((edges[:-1] + edges[1:]) / 2).tolist()
+        width = float(edges[1] - edges[0])
+        traces: list[dict[str, Any]] = [{
+            "type": "bar",
+            "x": centers,
+            "y": counts.tolist(),
+            "width": width,
+            "name": "count",
+            "marker": {"color": "#6366f1"},
+            "opacity": 0.85,
+        }]
+    else:
+        traces = [{
             "type": "histogram",
             "x": arr.tolist(),
             "nbinsx": bins,
             "name": "count",
             "marker": {"color": "#6366f1"},
             "opacity": 0.85,
-        }
-    ]
+        }]
     if arr.size >= 2 and np.std(arr) > 0:
         kde = stats.gaussian_kde(arr)
         xs = np.linspace(arr.min(), arr.max(), 200)
@@ -55,14 +82,35 @@ def boxplot_spec(
     for i, (label, values) in enumerate(series_by_group.items()):
         arr = np.asarray(values, dtype=float)
         arr = arr[~np.isnan(arr)]
-        traces.append({
-            "type": "box",
-            "y": arr.tolist(),
-            "name": label or y_label,
-            "boxpoints": "outliers",
-            "marker": {"color": palette[i % len(palette)]},
-            "line": {"width": 1.5},
-        })
+        color = palette[i % len(palette)]
+        if arr.size > 5000:
+            # Compute box statistics server-side and ship only those (plus a sample of
+            # outliers) rather than tens of thousands of raw points.
+            q1, med, q3 = (float(np.percentile(arr, p)) for p in (25, 50, 75))
+            iqr = q3 - q1
+            lo, hi = q1 - 1.5 * iqr, q3 + 1.5 * iqr
+            outliers = _downsample(arr[(arr < lo) | (arr > hi)], 200)
+            traces.append({
+                "type": "box",
+                "name": label or y_label,
+                "q1": [q1], "median": [med], "q3": [q3],
+                "lowerfence": [float(arr[arr >= lo].min()) if np.any(arr >= lo) else q1],
+                "upperfence": [float(arr[arr <= hi].max()) if np.any(arr <= hi) else q3],
+                "mean": [float(arr.mean())],
+                "y": outliers.tolist(),
+                "boxpoints": "outliers" if outliers.size else False,
+                "marker": {"color": color},
+                "line": {"width": 1.5},
+            })
+        else:
+            traces.append({
+                "type": "box",
+                "y": arr.tolist(),
+                "name": label or y_label,
+                "boxpoints": "outliers",
+                "marker": {"color": color},
+                "line": {"width": 1.5},
+            })
     return {
         "data": traces,
         "layout": {
@@ -133,11 +181,19 @@ def scatter_spec(
     mask = ~(np.isnan(xs) | np.isnan(ys))
     xs, ys = xs[mask], ys[mask]
 
+    # Downsample only the displayed markers; the OLS fit below uses the full sample.
+    if xs.size > 5000:
+        n = xs.size
+        keep = np.unique(np.linspace(0, n - 1, 5000).round().astype(int))
+        plot_xs, plot_ys = xs[keep], ys[keep]
+    else:
+        plot_xs, plot_ys = xs, ys
+
     traces: list[dict[str, Any]] = [{
         "type": "scatter",
         "mode": "markers",
-        "x": xs.tolist(),
-        "y": ys.tolist(),
+        "x": plot_xs.tolist(),
+        "y": plot_ys.tolist(),
         "name": "observations",
         "marker": {"color": "#6366f1", "size": 6, "opacity": 0.75},
     }]
@@ -632,6 +688,11 @@ def qq_plot_spec(values: list[float], title: str = "Normal Q–Q plot") -> dict[
     (osm, osr), (slope, intercept, _) = stats.probplot(arr, dist="norm", fit=True)
     line_x = [float(osm.min()), float(osm.max())]
     line_y = [slope * x + intercept for x in line_x]
+
+    # Downsample the displayed points for large n (the fit line uses all of them).
+    if osm.size > 2000:
+        keep = np.unique(np.linspace(0, osm.size - 1, 2000).round().astype(int))
+        osm, osr = osm[keep], osr[keep]
 
     return {
         "data": [

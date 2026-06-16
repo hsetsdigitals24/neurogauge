@@ -14,18 +14,31 @@ from app.core.plots import histogram_spec, qq_plot_spec
 router = APIRouter(tags=["normality"], dependencies=[Depends(require_secret)])
 
 
+SHAPIRO_MAX_N = 5000
+
+
 def _normality_one(arr: np.ndarray, tests: list[str]) -> dict[str, Any]:
     out: dict[str, Any] = {"n": int(arr.size)}
     if arr.size < 3:
         return out
 
     if "shapiro" in tests:
-        try:
-            w, p = stats.shapiro(arr)
-            out["shapiro_w"] = round(float(w), 6)
-            out["shapiro_p"] = round(float(p), 6)
-        except Exception as e:
-            out["shapiro_error"] = str(e)
+        if arr.size > SHAPIRO_MAX_N:
+            # Shapiro-Wilk is unreliable (and slow) for very large n — use the
+            # D'Agostino-Pearson K² omnibus test instead, which scales to large samples.
+            try:
+                k2, p = stats.normaltest(arr)
+                out["dagostino_k2"] = round(float(k2), 6)
+                out["dagostino_p"] = round(float(p), 6)
+            except Exception as e:
+                out["dagostino_error"] = str(e)
+        else:
+            try:
+                w, p = stats.shapiro(arr)
+                out["shapiro_w"] = round(float(w), 6)
+                out["shapiro_p"] = round(float(p), 6)
+            except Exception as e:
+                out["shapiro_error"] = str(e)
 
     if "ks" in tests:
         # Standardize against estimated mean/SD — Lilliefors-style.
@@ -71,8 +84,11 @@ def normality(req: AnalysisRequest) -> AnalysisResponse:
         rows.append({"group": label, **{k: v for k, v in result.items() if k != "n"}, "n": result["n"]})
         if arr.size < 8:
             warnings.append(f"{label}: n={arr.size} — normality tests unreliable")
-        elif "shapiro" in tests and arr.size > 5000:
-            warnings.append(f"{label}: n={arr.size} — Shapiro-Wilk unreliable above n=5000")
+        elif "shapiro" in tests and arr.size > SHAPIRO_MAX_N:
+            warnings.append(
+                f"{label}: n={arr.size} — Shapiro-Wilk skipped above n={SHAPIRO_MAX_N}; "
+                "reported D'Agostino K² (and K-S) instead."
+            )
         if arr.size >= 2:
             plots.append(PlotSpec(type="histogram", plotly=histogram_spec(arr.tolist(), title=f"Histogram — {label}")))
             plots.append(PlotSpec(type="qq", plotly=qq_plot_spec(arr.tolist(), title=f"Q–Q plot — {label}")))

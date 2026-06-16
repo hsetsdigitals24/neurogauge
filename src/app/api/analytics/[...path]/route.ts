@@ -4,8 +4,11 @@ import { prisma } from "@/lib/prisma";
 import { getSessionUser } from "@/lib/auth";
 import { loadProjectDataset, referencedColumns, TRIAL_COLUMNS } from "@/lib/analytics/dataset";
 import { resolveDatasetAccess } from "@/lib/analytics/datasetAuth";
-import { loadDatasetRows } from "@/lib/analytics/datasetStore";
-import { applyComputedColumns, type ComputedColumnDef } from "@/lib/analytics/computeColumn";
+import { streamProjectedRows } from "@/lib/analytics/datasetStore";
+import { applyComputedColumns, computedInputColumns, type ComputedColumnDef } from "@/lib/analytics/computeColumn";
+
+// Streaming a large rows blob through the function can take a while; keep headroom.
+export const maxDuration = 300;
 
 type Ctx = { params: Promise<{ path: string[] }> };
 
@@ -49,8 +52,10 @@ export async function POST(req: Request, ctx: Ctx) {
   // or a neurogauge Project, then project each row down to just the columns this
   // analysis references — keeping the upstream payload small (the analytics VPS
   // has limited RAM and a 50 MB nginx body cap).
-  let rows: Record<string, unknown>[];
-  let schema: Record<string, unknown>;
+  // Project each row down to only the columns this analysis references — keeping the
+  // upstream payload small AND (for blob-backed datasets) streaming the rows so a huge
+  // blob is never fully held in this function's memory.
+  let data: Record<string, unknown>[];
 
   if (datasetId) {
     const access = await resolveDatasetAccess<{
@@ -67,11 +72,23 @@ export async function POST(req: Request, ctx: Ctx) {
         { status: access.status }
       );
     }
-    // Rows may be inline or in Blob; blob-backed datasets don't persist
-    // materialised computed columns, so re-apply them from their definitions.
-    rows = await loadDatasetRows(access.dataset);
-    rows = applyComputedColumns(rows, (access.dataset.computedColumns ?? []) as ComputedColumnDef[]);
-    schema = (access.dataset.schema ?? {}) as Record<string, unknown>;
+    const schema = (access.dataset.schema ?? {}) as Record<string, unknown>;
+    const computed = (access.dataset.computedColumns ?? []) as ComputedColumnDef[];
+
+    // Resolve referenced columns from the (small) schema before touching rows.
+    const cols = referencedColumns(vars, new Set(Object.keys(schema)));
+    // Blob-backed datasets don't persist materialised computed columns; if the analysis
+    // references one, pull in its input columns so it can be re-derived after streaming.
+    const referencedComputed = computed.filter((d) => cols.has(d.key));
+    const needed = new Set(cols);
+    for (const d of referencedComputed) {
+      for (const input of computedInputColumns(d)) needed.add(input);
+    }
+
+    data = await streamProjectedRows(access.dataset, needed);
+    if (referencedComputed.length > 0) {
+      data = applyComputedColumns(data, referencedComputed);
+    }
   } else {
     // Authorize project access.
     const project = await db.project.findUnique({
@@ -88,18 +105,15 @@ export async function POST(req: Request, ctx: Ctx) {
     const needsTrials = includeTrials ?? referencedColumns(vars, TRIAL_COLUMNS).size > 0;
     const dataset = await loadProjectDataset(projectId!, { includeTrials: needsTrials });
     if (!dataset) return NextResponse.json({ error: "Project not found" }, { status: 404 });
-    rows = dataset.rows;
-    schema = dataset.schema;
+    const cols = referencedColumns(vars, new Set(Object.keys(dataset.schema)));
+    data = cols.size > 0
+      ? dataset.rows.map((r) => {
+          const projected: Record<string, unknown> = {};
+          for (const c of cols) projected[c] = r[c] ?? null;
+          return projected;
+        })
+      : dataset.rows;
   }
-
-  const cols = referencedColumns(vars, new Set(Object.keys(schema)));
-  const data = cols.size > 0
-    ? rows.map((r) => {
-        const projected: Record<string, unknown> = {};
-        for (const c of cols) projected[c] = r[c] ?? null;
-        return projected;
-      })
-    : rows;
 
   const upstreamPayload = { data, variables: vars, options: options ?? {} };
   const paramsHash = createHash("sha256")

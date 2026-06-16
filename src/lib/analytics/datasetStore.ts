@@ -7,6 +7,9 @@
  */
 
 import { put, del } from "@vercel/blob";
+import { Readable } from "node:stream";
+import parser from "stream-json";
+import StreamArray from "stream-json/streamers/StreamArray";
 
 /** Rows JSON above this is stored in Blob instead of inline jsonb. */
 export const INLINE_ROWS_LIMIT_BYTES = 2 * 1024 * 1024; // 2 MB
@@ -54,6 +57,48 @@ export async function loadDatasetRows(dataset: {
     if (!res.ok) throw new Error(`Failed to load dataset rows from storage (${res.status})`);
     return (await res.json()) as Record<string, unknown>[];
   }
+  return [];
+}
+
+/**
+ * Load rows projected down to only `neededColumns`, streaming the source so a huge
+ * blob (hundreds of MB) is never fully materialised in memory. Peak memory stays
+ * proportional to the projected columns, not the full dataset width.
+ *
+ * This is what the analytics proxy uses: an analysis usually references one or a few
+ * columns out of a wide dataset, so we keep just those.
+ */
+export async function streamProjectedRows(
+  dataset: { rows?: unknown; rowsBlobUrl?: string | null },
+  neededColumns: Set<string>
+): Promise<Record<string, unknown>[]> {
+  const project = (r: Record<string, unknown>): Record<string, unknown> => {
+    if (neededColumns.size === 0) return r; // no columns referenced — keep row as-is
+    const out: Record<string, unknown> = {};
+    for (const c of neededColumns) out[c] = r[c] ?? null;
+    return out;
+  };
+
+  // Inline rows are capped at INLINE_ROWS_LIMIT_BYTES, so projecting in memory is cheap.
+  if (Array.isArray(dataset.rows)) {
+    return (dataset.rows as Record<string, unknown>[]).map(project);
+  }
+
+  if (dataset.rowsBlobUrl && isBlobUrl(dataset.rowsBlobUrl)) {
+    const res = await fetch(dataset.rowsBlobUrl);
+    if (!res.ok || !res.body) {
+      throw new Error(`Failed to load dataset rows from storage (${res.status})`);
+    }
+    const out: Record<string, unknown>[] = [];
+    const pipeline = Readable.fromWeb(res.body as Parameters<typeof Readable.fromWeb>[0])
+      .pipe(parser())
+      .pipe(StreamArray.streamArray());
+    for await (const { value } of pipeline as AsyncIterable<{ value: Record<string, unknown> }>) {
+      out.push(project(value));
+    }
+    return out;
+  }
+
   return [];
 }
 

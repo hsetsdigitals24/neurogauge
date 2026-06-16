@@ -41,6 +41,24 @@ export interface ComputedColumnDef {
   spec: ComputedSpec;
 }
 
+/** Column names a computed-column definition reads from (its inputs). */
+export function computedInputColumns(def: ComputedColumnDef): string[] {
+  const t = def.spec;
+  switch (t.op) {
+    case "mean":
+    case "sum":
+      return [...t.inputs];
+    case "diff":
+      return [t.a, t.b];
+    case "zscore":
+    case "log":
+    case "recode":
+      return [t.input];
+    case "ifThen":
+      return [t.conditionCol];
+  }
+}
+
 function num(v: unknown): number | null {
   if (v == null || v === "") return null;
   const n = typeof v === "number" ? v : Number(v);
