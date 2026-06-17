@@ -12,6 +12,7 @@ import {
 import { CustomQuestion, Level, SHAPE_LIBRARY, StimulusType, StudyConfig } from "@/lib/types";
 import { summarize } from "@/lib/scoring";
 import { generateId } from "@/lib/id";
+import { notify } from "@/lib/toast";
 
 const TYPES: { v: StimulusType; label: string }[] = [
   { v: "letters", label: "Letters" },
@@ -83,18 +84,35 @@ export default function ProjectDetailPage() {
   async function saveConfig() {
     if (!cfg) return;
     setSaveStatus("saving");
-    await fetch(`/api/projects/${id}`, {
-      method: "PUT",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ name: projectName, config: cfg }),
-    });
-    setSaveStatus("saved");
-    setTimeout(() => setSaveStatus("idle"), 2000);
+    try {
+      const res = await fetch(`/api/projects/${id}`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ name: projectName, config: cfg }),
+      });
+      if (!res.ok) {
+        const data = await res.json().catch(() => ({}));
+        notify.error(data.error ?? "Failed to save changes");
+        setSaveStatus("idle");
+        return;
+      }
+      setSaveStatus("saved");
+      setTimeout(() => setSaveStatus("idle"), 2000);
+    } catch {
+      notify.error("Network error");
+      setSaveStatus("idle");
+    }
   }
 
   async function deleteProject() {
     if (!confirm("Delete this project and all its data? This cannot be undone.")) return;
-    await fetch(`/api/projects/${id}`, { method: "DELETE" });
+    const res = await fetch(`/api/projects/${id}`, { method: "DELETE" });
+    if (!res.ok) {
+      const data = await res.json().catch(() => ({}));
+      notify.error(data.error ?? "Failed to delete project");
+      return;
+    }
+    notify.success("Project deleted");
     router.push("/dashboard");
   }
 
@@ -125,9 +143,10 @@ export default function ProjectDetailPage() {
         inviteId: data.invite?.id,
       });
       setInviteEmail("");
+      if (data.emailSent) notify.success(`Invite emailed to ${to}`);
       load();
     } else {
-      setInviteStatus({ error: data.error });
+      notify.error(data.error ?? "Failed to send invite");
     }
     setInviting(false);
   }
@@ -141,9 +160,10 @@ export default function ProjectDetailPage() {
     setCancelingInviteId(null);
     if (!res.ok) {
       const data = await res.json().catch(() => ({}));
-      alert(data.error ?? "Failed to cancel invite");
+      notify.error(data.error ?? "Failed to cancel invite");
       return;
     }
+    notify.success(`Invite to ${email} canceled`);
     if (inviteStatus?.inviteId === inviteId) setInviteStatus(null);
     load();
   }
@@ -566,9 +586,6 @@ export default function ProjectDetailPage() {
                         </div>
                       </div>
                     )}
-                    {inviteStatus?.error && (
-                      <p className="mt-2 text-sm text-[color:var(--danger)]">{inviteStatus.error}</p>
-                    )}
                   </div>
                 )}
 
@@ -638,7 +655,7 @@ function DownloadResults({ projectId, disabled }: { projectId: string; disabled:
     try {
       const res = await fetch(`/api/projects/${projectId}/export?format=${format}`);
       if (!res.ok) {
-        alert("Could not download results.");
+        notify.error("Could not download results.");
         return;
       }
       const blob = await res.blob();

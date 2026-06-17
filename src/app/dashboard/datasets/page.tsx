@@ -6,6 +6,7 @@ import { motion } from "framer-motion";
 import { Database, Upload, Trash2, ChevronRight, ArrowLeft, Loader2, Table2, X } from "lucide-react";
 import { uploadCsvAsDataset, uploadSheetAsDataset } from "@/lib/analytics/uploadDataset";
 import { isSpreadsheetFile, readWorkbook } from "@/lib/analytics/spreadsheetParser";
+import { notify } from "@/lib/toast";
 
 const UPLOAD_ACCEPT =
   ".csv,.xlsx,.xls,.xlsm,.ods,text/csv,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,application/vnd.ms-excel";
@@ -25,7 +26,6 @@ export default function DatasetsPage() {
   const [loading, setLoading] = useState(true);
   const [uploading, setUploading] = useState(false);
   const [progress, setProgress] = useState<number | null>(null);
-  const [error, setError] = useState<string | null>(null);
   const [pendingWorkbook, setPendingWorkbook] = useState<{ file: File; sheetNames: string[] } | null>(null);
   const inputRef = useRef<HTMLInputElement>(null);
 
@@ -34,13 +34,12 @@ export default function DatasetsPage() {
     fetch("/api/datasets")
       .then((r) => (r.ok ? r.json() : { datasets: [] }))
       .then((data) => { if (!cancelled) setDatasets(data.datasets ?? []); })
-      .catch(() => {})
+      .catch(() => { if (!cancelled) notify.error("Could not load datasets"); })
       .finally(() => { if (!cancelled) setLoading(false); });
     return () => { cancelled = true; };
   }, []);
 
   async function handleFile(file: File) {
-    setError(null);
     if (isSpreadsheetFile(file)) {
       // Inspect sheets first; let the user pick when there is more than one tab.
       setUploading(true);
@@ -55,7 +54,7 @@ export default function DatasetsPage() {
           setPendingWorkbook({ file, sheetNames: wb.sheetNames });
         }
       } catch (e) {
-        setError(e instanceof Error ? e.message : "Could not read spreadsheet");
+        notify.error(e instanceof Error ? e.message : "Could not read spreadsheet");
         setUploading(false);
         setProgress(null);
       }
@@ -67,16 +66,16 @@ export default function DatasetsPage() {
       const created = await uploadCsvAsDataset(file, {
         onProgress: (pct) => setProgress(Math.round(pct)),
       });
+      notify.success("Dataset uploaded");
       router.push(`/dashboard/datasets/${created.id}/analytics`);
     } catch (e) {
-      setError(e instanceof Error ? e.message : "Upload failed");
+      notify.error(e instanceof Error ? e.message : "Upload failed");
       setUploading(false);
       setProgress(null);
     }
   }
 
   async function uploadSheet(file: File, sheetName: string) {
-    setError(null);
     setPendingWorkbook(null);
     setUploading(true);
     setProgress(null);
@@ -84,9 +83,10 @@ export default function DatasetsPage() {
       const created = await uploadSheetAsDataset(file, sheetName, {
         onProgress: (pct) => setProgress(Math.round(pct)),
       });
+      notify.success("Dataset uploaded");
       router.push(`/dashboard/datasets/${created.id}/analytics`);
     } catch (e) {
-      setError(e instanceof Error ? e.message : "Upload failed");
+      notify.error(e instanceof Error ? e.message : "Upload failed");
       setUploading(false);
       setProgress(null);
     }
@@ -95,7 +95,13 @@ export default function DatasetsPage() {
   async function remove(id: string) {
     if (!confirm("Delete this dataset? This cannot be undone.")) return;
     const res = await fetch(`/api/datasets/${id}`, { method: "DELETE" });
-    if (res.ok) setDatasets((ds) => ds.filter((d) => d.id !== id));
+    if (res.ok) {
+      setDatasets((ds) => ds.filter((d) => d.id !== id));
+      notify.success("Dataset deleted");
+    } else {
+      const data = await res.json().catch(() => ({}));
+      notify.error(data.error ?? "Failed to delete dataset");
+    }
   }
 
   return (
@@ -136,12 +142,6 @@ export default function DatasetsPage() {
             }}
           />
         </motion.div>
-
-        {error && (
-          <div className="mt-4 p-3 bg-red-50 rounded-lg text-sm text-red-700 border border-red-100">
-            {error}
-          </div>
-        )}
 
         {loading && (
           <div className="mt-10 text-center text-[color:var(--muted)] text-sm">Loading datasets…</div>

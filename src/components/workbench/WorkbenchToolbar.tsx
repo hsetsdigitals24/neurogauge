@@ -10,6 +10,7 @@ import { useWorkbench } from "@/contexts/WorkbenchContext";
 import { rowsToCsv } from "@/lib/analytics/csvParser";
 import { uploadCsvAsDataset } from "@/lib/analytics/uploadDataset";
 import { downloadText } from "@/lib/csv";
+import { notify } from "@/lib/toast";
 
 interface WorkbenchToolbarProps {
   onTransform: () => void;
@@ -31,9 +32,10 @@ export function WorkbenchToolbar({ onTransform, onImport }: WorkbenchToolbarProp
     setUploading(true);
     try {
       const created = await uploadCsvAsDataset(file, { projectId });
+      notify.success("Dataset uploaded");
       router.push(`/dashboard/datasets/${created.id}/analytics`);
     } catch (e) {
-      alert(e instanceof Error ? e.message : "Upload failed");
+      notify.error(e instanceof Error ? e.message : "Upload failed");
       setUploading(false);
     }
   }

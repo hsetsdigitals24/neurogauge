@@ -5,6 +5,7 @@ import { useWorkbench } from "@/contexts/WorkbenchContext";
 import { sanitiseColumnKey, uniqueKey } from "@/lib/analytics/csvIngest";
 import type { ColumnType } from "@/lib/analytics/dataset";
 import type { Band, CompareOp, ComputedSpec, ComputedColumnDef } from "@/lib/analytics/computeColumn";
+import { notify } from "@/lib/toast";
 
 type Op = ComputedSpec["op"];
 
@@ -90,6 +91,7 @@ export function ComputedColumnDialog({ onClose }: { onClose: () => void }) {
     const key = uniqueKey(sanitiseColumnKey(label, "computed"), new Set(Object.keys(state.schema)));
     const def: ComputedColumnDef = { key, label: label.trim(), type: resolvedType, spec };
     dispatch({ type: "addComputedColumn", def });
+    notify.success(`Added computed column “${def.label}”`);
     onClose();
   }
 

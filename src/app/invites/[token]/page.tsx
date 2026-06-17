@@ -4,6 +4,7 @@ import { useParams, useRouter } from "next/navigation";
 import Link from "next/link";
 import { motion } from "framer-motion";
 import { Users, CheckCircle, XCircle } from "lucide-react";
+import { notify } from "@/lib/toast";
 
 type Status = "loading" | "ready" | "notfound" | "alreadyAccepted" | "accepting" | "done" | "error" | "wrongEmail";
 
@@ -45,13 +46,16 @@ export default function InvitePage() {
     const data = await res.json();
     if (res.ok) {
       setStatus("done");
+      notify.success("Invite accepted");
       setTimeout(() => router.push(`/dashboard/projects/${data.projectId}`), 1800);
     } else if (res.status === 403) {
       setStatus("wrongEmail");
       setErrorMsg(data.error);
+      notify.error(data.error ?? "Wrong account for this invite");
     } else {
       setStatus("error");
       setErrorMsg(data.error ?? "Something went wrong");
+      notify.error(data.error ?? "Something went wrong");
     }
   }
 

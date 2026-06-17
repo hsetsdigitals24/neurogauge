@@ -3,6 +3,7 @@ import { useEffect, useState } from "react";
 import { motion } from "framer-motion";
 import Link from "next/link";
 import { Header } from "@/components/Header";
+import { notify } from "@/lib/toast";
 
 interface Row {
   id: string; participantId: string;
@@ -19,7 +20,7 @@ export default function SessionsPage() {
     fetch("/api/sessions")
       .then((r) => r.ok ? r.json() : Promise.reject(r.statusText))
       .then(setRows)
-      .catch((e) => setError(String(e)));
+      .catch((e) => { setError(String(e)); notify.error("Failed to load sessions"); });
   }, []);
 
   return (

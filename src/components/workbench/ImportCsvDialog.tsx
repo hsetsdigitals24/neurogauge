@@ -4,6 +4,7 @@ import { Upload, X, Check, AlertTriangle } from "lucide-react";
 import { parseCsv } from "@/lib/analytics/csvParser";
 import { isSpreadsheetFile, readWorkbook, type WorkbookHandle } from "@/lib/analytics/spreadsheetParser";
 import { useWorkbench } from "@/contexts/WorkbenchContext";
+import { notify } from "@/lib/toast";
 
 const IMPORT_ACCEPT =
   ".csv,.xlsx,.xls,.xlsm,.ods,text/csv,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,application/vnd.ms-excel";
@@ -91,6 +92,7 @@ export function ImportCsvDialog({ onClose }: Props) {
   function handleMerge() {
     if (!parsed) return;
     dispatch({ type: "mergeImport", rows: parsed.rows });
+    notify.success(`Imported ${parsed.rows.length.toLocaleString()} rows`);
     onClose();
   }
 

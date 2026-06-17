@@ -3,6 +3,7 @@ import { useRef } from "react";
 import { useWorkspace } from "./WorkspaceProvider";
 import { toFile, downloadJson, SessionFileV1, clearLocal } from "@/lib/stats";
 import { Save, Upload, Trash2 } from "lucide-react";
+import { notify } from "@/lib/toast";
 
 export function SessionFile() {
   const ws = useWorkspace();
@@ -18,7 +19,7 @@ export function SessionFile() {
     reader.onload = () => {
       try {
         const parsed = JSON.parse(reader.result as string) as SessionFileV1;
-        if (parsed.version !== 1) { alert("Unsupported file version."); return; }
+        if (parsed.version !== 1) { notify.error("Unsupported file version."); return; }
         const native = ws.variables.filter((v) => v.source.kind === "native");
         const derived = parsed.variables.filter((v) => v.source.kind === "derived");
         const nativeMap = new Map(native.map((v) => [v.id, v]));
@@ -34,8 +35,9 @@ export function SessionFile() {
           filter: parsed.filter ?? { clauses: [] },
           outputs: parsed.outputs ?? [],
         }});
+        notify.success("Workspace loaded");
       } catch {
-        alert("Could not parse session file.");
+        notify.error("Could not parse session file.");
       }
     };
     reader.readAsText(file);

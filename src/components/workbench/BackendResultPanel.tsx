@@ -1,7 +1,9 @@
 "use client";
+import { useEffect } from "react";
 import { AlertTriangle, Download } from "lucide-react";
 import type { AnalysisResponse } from "@/lib/analytics/client";
 import { downloadText } from "@/lib/csv";
+import { notify } from "@/lib/toast";
 import { PlotEditor } from "./PlotEditor";
 
 interface Props {
@@ -53,6 +55,13 @@ function ResultTable({ block }: { block: TableBlock }) {
 
 export function BackendResultPanel({ result }: Props) {
   const postHoc = asTableBlock(result.stats?.post_hoc);
+
+  // Surface analysis warnings as toasts when results arrive (the inline banner below
+  // stays as the persistent, contextual record).
+  useEffect(() => {
+    result.warnings.forEach((w) => notify.warning(w));
+  }, [result]);
+
   function downloadCsv() {
     const { headers, rows } = result.table;
     const lines = [

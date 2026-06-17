@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import "./globals.css";
 import { Header } from "@/components/Header";
 import { Footer } from "@/components/Footer";
+import { AppToaster } from "@/components/AppToaster";
 
 export const metadata: Metadata = {
   title: "Neurogauge  Neuroscience Lab — Cognitive Assessment Platform",
@@ -16,6 +17,7 @@ export default function RootLayout({ children }: Readonly<{ children: React.Reac
         <Header />
         {children}
         <Footer />
+        <AppToaster />
       </body>
     </html>
   );

@@ -5,6 +5,7 @@ import { useRouter, useSearchParams } from "next/navigation";
 import { motion } from "framer-motion";
 import Image from "next/image";
 import PasswordInput from "@/components/PasswordInput";
+import { notify } from "@/lib/toast";
 
 function ResetForm() {
   const router = useRouter();
@@ -13,23 +14,21 @@ function ResetForm() {
 
   const [password, setPassword] = useState("");
   const [confirm, setConfirm] = useState("");
-  const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
   const [done, setDone] = useState(false);
 
   async function submit(e: React.FormEvent) {
     e.preventDefault();
-    setError("");
     if (!token) {
-      setError("Missing reset token.");
+      notify.error("Missing reset token.");
       return;
     }
     if (password.length < 8) {
-      setError("Password must be at least 8 characters");
+      notify.error("Password must be at least 8 characters");
       return;
     }
     if (password !== confirm) {
-      setError("Passwords do not match");
+      notify.error("Passwords do not match");
       return;
     }
     setLoading(true);
@@ -41,13 +40,14 @@ function ResetForm() {
       });
       const data = await res.json();
       if (!res.ok) {
-        setError(data.error ?? "Reset failed");
+        notify.error(data.error ?? "Reset failed");
         return;
       }
+      notify.success("Password reset");
       setDone(true);
       setTimeout(() => router.push("/auth/login"), 2000);
     } catch {
-      setError("Network error");
+      notify.error("Network error");
     } finally {
       setLoading(false);
     }
@@ -89,7 +89,6 @@ function ResetForm() {
           required
         />
       </div>
-      {error && <p className="text-sm text-[color:var(--danger)]">{error}</p>}
       <button className="btn btn-primary w-full" type="submit" disabled={loading}>
         {loading ? "Resetting…" : "Reset password"}
       </button>

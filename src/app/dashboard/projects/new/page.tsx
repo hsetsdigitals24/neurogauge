@@ -7,6 +7,7 @@ import { ArrowLeft } from "lucide-react";
 import { DEFAULT_CONFIG } from "@/lib/config";
 import { CustomQuestion, Level, SHAPE_LIBRARY, StimulusType, StudyConfig } from "@/lib/types";
 import { generateId } from "@/lib/id";
+import { notify } from "@/lib/toast";
 
 const TYPES: { v: StimulusType; label: string }[] = [
   { v: "letters", label: "Letters" },
@@ -19,7 +20,6 @@ export default function NewProjectPage() {
   const router = useRouter();
   const [name, setName] = useState("");
   const [cfg, setCfg] = useState<StudyConfig>(DEFAULT_CONFIG);
-  const [error, setError] = useState("");
   const [saving, setSaving] = useState(false);
 
   function update<K extends keyof StudyConfig>(k: K, v: StudyConfig[K]) {
@@ -41,8 +41,8 @@ export default function NewProjectPage() {
   }
 
   async function create() {
-    if (!name.trim()) { setError("Project name is required"); return; }
-    setSaving(true); setError("");
+    if (!name.trim()) { notify.error("Project name is required"); return; }
+    setSaving(true);
     try {
       const res = await fetch("/api/projects", {
         method: "POST",
@@ -50,10 +50,11 @@ export default function NewProjectPage() {
         body: JSON.stringify({ name: name.trim(), config: cfg }),
       });
       const data = await res.json();
-      if (!res.ok) { setError(data.error ?? "Failed to create"); return; }
+      if (!res.ok) { notify.error(data.error ?? "Failed to create"); return; }
+      notify.success("Project created");
       router.push(`/dashboard/projects/${data.id}`);
     } catch {
-      setError("Network error");
+      notify.error("Network error");
     } finally {
       setSaving(false);
     }
@@ -232,7 +233,6 @@ export default function NewProjectPage() {
           </div>
         </motion.div>
 
-        {error && <p className="mt-4 text-sm text-[color:var(--danger)]">{error}</p>}
         <div className="flex gap-3 mt-8">
           <button className="btn btn-primary" onClick={create} disabled={saving}>
             {saving ? "Creating…" : "Create project →"}

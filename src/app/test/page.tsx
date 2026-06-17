@@ -10,6 +10,7 @@ import {
 import { blockPlan, generateSequence } from "@/lib/sequences";
 import { summarize } from "@/lib/scoring";
 import { downloadText, summaryWideCsv, trialsLongCsv } from "@/lib/csv";
+import { notify } from "@/lib/toast";
 
 type Step =
   | { kind: "consent" }
@@ -111,9 +112,14 @@ export default function TestPage() {
         body: JSON.stringify({ ...session, clientSubmissionId }),
       });
       if (res.ok) setSaveStatus("saved");
-      else { setSaveStatus("error"); submitGuardRef.current = false; }
+      else {
+        setSaveStatus("error");
+        notify.error("Database save failed — local export still available");
+        submitGuardRef.current = false;
+      }
     } catch {
       setSaveStatus("error");
+      notify.error("Database save failed — local export still available");
       submitGuardRef.current = false;
     }
   };

@@ -6,6 +6,7 @@ import { ArrowLeft, Loader2 } from "lucide-react";
 import { fetchDataset, type DatasetResponse } from "@/lib/analytics/client";
 import type { CustomQuestion } from "@/lib/types";
 import { WorkbenchShell } from "@/components/workbench/WorkbenchShell";
+import { notify } from "@/lib/toast";
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 type TestSession = any;
@@ -47,7 +48,11 @@ export default function AnalyticsPage() {
           setProjectName(projectData.project?.name ?? "Project");
         }
       } catch (e) {
-        if (!cancelled) setError(e instanceof Error ? e.message : "Failed to load data");
+        if (!cancelled) {
+          const msg = e instanceof Error ? e.message : "Failed to load data";
+          setError(msg);
+          notify.error(msg);
+        }
       } finally {
         if (!cancelled) setLoading(false);
       }

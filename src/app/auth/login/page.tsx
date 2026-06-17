@@ -5,6 +5,7 @@ import { useRouter, useSearchParams } from "next/navigation";
 import { motion } from "framer-motion";
 import Image from "next/image";
 import PasswordInput from "@/components/PasswordInput";
+import { notify } from "@/lib/toast";
 
 function LoginForm() {
   const router = useRouter();
@@ -13,12 +14,10 @@ function LoginForm() {
 
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
-  const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
 
   async function submit(e: React.FormEvent) {
     e.preventDefault();
-    setError("");
     setLoading(true);
     try {
       const res = await fetch("/api/auth/login", {
@@ -27,10 +26,11 @@ function LoginForm() {
         body: JSON.stringify({ email, password }),
       });
       const data = await res.json();
-      if (!res.ok) { setError(data.error ?? "Login failed"); return; }
+      if (!res.ok) { notify.error(data.error ?? "Login failed"); return; }
+      notify.success("Signed in");
       router.push(next);
     } catch {
-      setError("Network error");
+      notify.error("Network error");
     } finally {
       setLoading(false);
     }
@@ -52,7 +52,6 @@ function LoginForm() {
         </div>
         <PasswordInput value={password} onChange={(e) => setPassword(e.target.value)} autoComplete="current-password" required />
       </div>
-      {error && <p className="text-sm text-[color:var(--danger)]">{error}</p>}
       <button className="btn btn-primary w-full" type="submit" disabled={loading}>
         {loading ? "Signing in…" : "Sign in"}
       </button>

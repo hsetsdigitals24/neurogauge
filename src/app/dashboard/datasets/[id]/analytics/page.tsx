@@ -5,6 +5,7 @@ import Link from "next/link";
 import { ArrowLeft, Loader2 } from "lucide-react";
 import { fetchDatasetById, type DatasetResponse } from "@/lib/analytics/client";
 import { WorkbenchShell } from "@/components/workbench/WorkbenchShell";
+import { notify } from "@/lib/toast";
 
 export default function DatasetAnalyticsPage() {
   const { id } = useParams<{ id: string }>();
@@ -19,7 +20,13 @@ export default function DatasetAnalyticsPage() {
 
     fetchDatasetById(id)
       .then((res) => { if (!cancelled) setDataset(res); })
-      .catch((e) => { if (!cancelled) setError(e instanceof Error ? e.message : "Failed to load dataset"); })
+      .catch((e) => {
+        if (!cancelled) {
+          const msg = e instanceof Error ? e.message : "Failed to load dataset";
+          setError(msg);
+          notify.error(msg);
+        }
+      })
       .finally(() => { if (!cancelled) setLoading(false); });
 
     return () => { cancelled = true; };

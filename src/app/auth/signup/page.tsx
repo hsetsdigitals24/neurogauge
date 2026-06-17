@@ -5,6 +5,7 @@ import { useRouter, useSearchParams } from "next/navigation";
 import { motion } from "framer-motion";
 import Image from "next/image";
 import PasswordInput from "@/components/PasswordInput";
+import { notify } from "@/lib/toast";
 
 function SignupForm() {
   const router = useRouter();
@@ -14,13 +15,11 @@ function SignupForm() {
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
-  const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
 
   async function submit(e: React.FormEvent) {
     e.preventDefault();
-    setError("");
-    if (password.length < 8) { setError("Password must be at least 8 characters"); return; }
+    if (password.length < 8) { notify.error("Password must be at least 8 characters"); return; }
     setLoading(true);
     try {
       const res = await fetch("/api/auth/signup", {
@@ -29,10 +28,11 @@ function SignupForm() {
         body: JSON.stringify({ name, email, password }),
       });
       const data = await res.json();
-      if (!res.ok) { setError(data.error ?? "Signup failed"); return; }
+      if (!res.ok) { notify.error(data.error ?? "Signup failed"); return; }
+      notify.success("Account created");
       router.push(next);
     } catch {
-      setError("Network error");
+      notify.error("Network error");
     } finally {
       setLoading(false);
     }
@@ -54,7 +54,6 @@ function SignupForm() {
         <label className="label">Password <span className="font-normal text-[color:var(--muted)]">(min 8 characters)</span></label>
         <PasswordInput value={password} onChange={(e) => setPassword(e.target.value)} autoComplete="new-password" required />
       </div>
-      {error && <p className="text-sm text-[color:var(--danger)]">{error}</p>}
       <button className="btn btn-primary w-full" type="submit" disabled={loading}>
         {loading ? "Creating account…" : "Create account"}
       </button>
