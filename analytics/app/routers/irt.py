@@ -8,6 +8,7 @@ from app import VERSION
 from app.deps import require_secret
 from app.schemas.common import AnalysisRequest, AnalysisResponse, Meta, PlotSpec, TableBlock
 from app.core.csv_io import df_to_table
+from app.core.guards import compute_guard
 from app.core.plots import icc_spec
 
 router = APIRouter(tags=["irt"], dependencies=[Depends(require_secret)])
@@ -53,24 +54,27 @@ def irt(req: AnalysisRequest) -> AnalysisResponse:
     except Exception as exc:  # pragma: no cover
         raise HTTPException(501, f"IRT library not available: {exc}")
 
-    try:
-        if model == "2pl":
-            est = twopl_mml(data)
-            discrimination = np.asarray(est["Discrimination"], dtype=float)
-            difficulty = np.asarray(est["Difficulty"], dtype=float)
-        else:
+    # The whole fit is wrapped so that if estimation (including the Rasch fallback) fails on
+    # degenerate input it surfaces as a clean 400 rather than an unhandled 500.
+    with compute_guard("IRT estimation"):
+        try:
+            if model == "2pl":
+                est = twopl_mml(data)
+                discrimination = np.asarray(est["Discrimination"], dtype=float)
+                difficulty = np.asarray(est["Difficulty"], dtype=float)
+            else:
+                est = rasch_mml(data)
+                difficulty = np.asarray(est["Difficulty"], dtype=float)
+                disc_val = float(np.asarray(est["Discrimination"]).ravel()[0])
+                discrimination = np.full(len(items), disc_val, dtype=float)
+        except Exception as exc:
+            # Fall back to the Rasch model if 2PL estimation fails to converge.
+            warnings.append(f"{model.upper()} estimation failed ({exc}); fell back to Rasch (1PL).")
             est = rasch_mml(data)
             difficulty = np.asarray(est["Difficulty"], dtype=float)
             disc_val = float(np.asarray(est["Discrimination"]).ravel()[0])
             discrimination = np.full(len(items), disc_val, dtype=float)
-    except Exception as exc:
-        # Fall back to the Rasch model if 2PL estimation fails to converge.
-        warnings.append(f"{model.upper()} estimation failed ({exc}); fell back to Rasch (1PL).")
-        est = rasch_mml(data)
-        difficulty = np.asarray(est["Difficulty"], dtype=float)
-        disc_val = float(np.asarray(est["Discrimination"]).ravel()[0])
-        discrimination = np.full(len(items), disc_val, dtype=float)
-        model = "1pl"
+            model = "1pl"
 
     item_rows: list[dict[str, Any]] = []
     for i, name in enumerate(items):

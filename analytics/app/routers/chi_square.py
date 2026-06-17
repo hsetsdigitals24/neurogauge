@@ -9,6 +9,7 @@ from app import VERSION
 from app.deps import require_secret
 from app.schemas.common import AnalysisRequest, AnalysisResponse, Meta, PlotSpec, TableBlock
 from app.core.csv_io import df_to_table
+from app.core.guards import compute_guard
 from app.core.plots import heatmap_spec
 
 router = APIRouter(tags=["chi-square"], dependencies=[Depends(require_secret)])
@@ -39,10 +40,11 @@ def chi_square(req: AnalysisRequest) -> AnalysisResponse:
 
     # Contingency table
     ct = pd.crosstab(df[row_col].astype(str), df[col_col].astype(str))
-    if ct.size == 0:
-        raise HTTPException(400, "contingency table is empty")
+    if ct.size == 0 or ct.shape[0] < 2 or ct.shape[1] < 2:
+        raise HTTPException(400, "need at least a 2×2 contingency table (each variable must have ≥2 categories)")
 
-    chi2, p, dof, expected = stats.chi2_contingency(ct.values)
+    with compute_guard("Chi-square"):
+        chi2, p, dof, expected = stats.chi2_contingency(ct.values)
     n = int(ct.values.sum())
     r_n, c_n = ct.shape
     v = _cramers_v(float(chi2), n, r_n, c_n)

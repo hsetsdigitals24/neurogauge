@@ -7,6 +7,7 @@ from app import VERSION
 from app.deps import require_secret
 from app.schemas.common import AnalysisRequest, AnalysisResponse, Meta, PlotSpec, TableBlock
 from app.core.csv_io import df_to_table
+from app.core.guards import compute_guard
 from app.core.plots import boxplot_spec
 
 router = APIRouter(tags=["mann_whitney"], dependencies=[Depends(require_secret)])
@@ -42,7 +43,8 @@ def mann_whitney(req: AnalysisRequest) -> AnalysisResponse:
         raise HTTPException(400, f"each group needs >= 1 observation (got {a.size} and {b.size})")
 
     warnings: list[str] = []
-    out = pg.mwu(a, b, alternative=alternative)
+    with compute_guard("Mann-Whitney U"):
+        out = pg.mwu(a, b, alternative=alternative)
     row = out.iloc[0].to_dict()
     p_val = float(row.get("p_val", row.get("p-val", float("nan"))))
     u_val = float(row.get("U_val", row.get("U-val", float("nan"))))

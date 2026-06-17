@@ -9,6 +9,7 @@ from app import VERSION
 from app.deps import require_secret
 from app.schemas.common import AnalysisRequest, AnalysisResponse, Meta, PlotSpec, TableBlock
 from app.core.csv_io import df_to_table
+from app.core.guards import compute_guard
 from app.core.plots import boxplot_spec
 
 router = APIRouter(tags=["ttest"], dependencies=[Depends(require_secret)])
@@ -42,7 +43,8 @@ def ttest(req: AnalysisRequest) -> AnalysisResponse:
         arr = pd.to_numeric(df[column], errors="coerce").dropna().to_numpy(dtype=float)
         if arr.size < 2:
             raise HTTPException(400, f"n={arr.size} — need at least 2 observations")
-        out = pg.ttest(arr, mu, alternative=alternative, confidence=1 - alpha)
+        with compute_guard("One-sample t-test"):
+            out = pg.ttest(arr, mu, alternative=alternative, confidence=1 - alpha)
         title = f"One-sample t-test — {column} vs μ={mu}"
         plots.append(PlotSpec(
             type="boxplot",
@@ -57,8 +59,9 @@ def ttest(req: AnalysisRequest) -> AnalysisResponse:
         pair = df[[col_a, col_b]].apply(pd.to_numeric, errors="coerce").dropna()
         if len(pair) < 2:
             raise HTTPException(400, f"n={len(pair)} — need at least 2 paired observations")
-        out = pg.ttest(pair[col_a].to_numpy(), pair[col_b].to_numpy(),
-                       paired=True, alternative=alternative, confidence=1 - alpha)
+        with compute_guard("Paired t-test"):
+            out = pg.ttest(pair[col_a].to_numpy(), pair[col_b].to_numpy(),
+                           paired=True, alternative=alternative, confidence=1 - alpha)
         title = f"Paired t-test — {col_a} vs {col_b}"
         plots.append(PlotSpec(
             type="boxplot",
@@ -83,7 +86,8 @@ def ttest(req: AnalysisRequest) -> AnalysisResponse:
         b = pd.to_numeric(d2[column], errors="coerce").dropna().to_numpy(dtype=float)
         if a.size < 2 or b.size < 2:
             raise HTTPException(400, f"each group needs >= 2 observations (got {a.size} and {b.size})")
-        out = pg.ttest(a, b, paired=False, alternative=alternative, confidence=1 - alpha)
+        with compute_guard("Independent t-test"):
+            out = pg.ttest(a, b, paired=False, alternative=alternative, confidence=1 - alpha)
         title = f"Independent t-test — {column} by {group_by}"
         if a.size < 30 or b.size < 30:
             warnings.append("Small samples — check normality and consider Welch / Mann-Whitney.")

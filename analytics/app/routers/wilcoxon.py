@@ -7,6 +7,7 @@ from app import VERSION
 from app.deps import require_secret
 from app.schemas.common import AnalysisRequest, AnalysisResponse, Meta, PlotSpec, TableBlock
 from app.core.csv_io import df_to_table
+from app.core.guards import compute_guard
 from app.core.plots import boxplot_spec
 
 router = APIRouter(tags=["wilcoxon"], dependencies=[Depends(require_secret)])
@@ -37,7 +38,8 @@ def wilcoxon(req: AnalysisRequest) -> AnalysisResponse:
     b = pair[col_b].to_numpy(dtype=float)
 
     warnings: list[str] = []
-    out = pg.wilcoxon(a, b, alternative=alternative)
+    with compute_guard("Wilcoxon signed-rank"):
+        out = pg.wilcoxon(a, b, alternative=alternative)
     row = out.iloc[0].to_dict()
     p_val = float(row.get("p_val", row.get("p-val", float("nan"))))
     w_val = float(row.get("W_val", row.get("W-val", float("nan"))))

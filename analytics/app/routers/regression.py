@@ -10,6 +10,7 @@ from app import VERSION
 from app.deps import require_secret
 from app.schemas.common import AnalysisRequest, AnalysisResponse, Meta, PlotSpec, TableBlock
 from app.core.csv_io import df_to_table
+from app.core.guards import compute_guard
 from app.core.plots import residuals_spec, coefficient_forest_spec, scatter_spec, confusion_matrix_spec
 
 router = APIRouter(tags=["regression"], dependencies=[Depends(require_secret)])
@@ -64,14 +65,13 @@ def linear_regression(req: AnalysisRequest) -> AnalysisResponse:
     if len(df) < len(predictors) + 2:
         raise HTTPException(400, f"need at least {len(predictors) + 2} complete rows, got {len(df)}")
 
-    X, names = _design_matrix(df, predictors)
-    y = df[dv].to_numpy(dtype=float)
-    if add_constant:
-        X = sm.add_constant(X, has_constant="add")
-        names = ["(intercept)", *names]
-
-    model = sm.OLS(y, X.astype(float))
-    res = model.fit()
+    with compute_guard("Linear regression"):
+        X, names = _design_matrix(df, predictors)
+        y = df[dv].to_numpy(dtype=float)
+        if add_constant:
+            X = sm.add_constant(X, has_constant="add")
+            names = ["(intercept)", *names]
+        res = sm.OLS(y, X.astype(float)).fit()
 
     ci = res.conf_int(alpha=alpha)
     coef_rows: list[dict[str, Any]] = []
@@ -155,6 +155,8 @@ def logistic_regression(req: AnalysisRequest) -> AnalysisResponse:
         raise HTTPException(400, f"columns not found: {missing}")
 
     df = df[needed].copy().dropna()
+    if len(df) < len(predictors) + 2:
+        raise HTTPException(400, f"need at least {len(predictors) + 2} complete rows, got {len(df)}")
     raw_dv = df[dv]
     # Build binary 0/1 target.
     if pd.api.types.is_bool_dtype(raw_dv):

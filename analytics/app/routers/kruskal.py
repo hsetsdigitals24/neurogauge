@@ -9,6 +9,7 @@ from app import VERSION
 from app.deps import require_secret
 from app.schemas.common import AnalysisRequest, AnalysisResponse, Meta, PlotSpec, TableBlock
 from app.core.csv_io import df_to_table
+from app.core.guards import compute_guard
 from app.core.plots import boxplot_spec
 
 router = APIRouter(tags=["kruskal"], dependencies=[Depends(require_secret)])
@@ -44,7 +45,8 @@ def kruskal_wallis(req: AnalysisRequest) -> AnalysisResponse:
         raise HTTPException(400, f"between must have >= 2 levels, found {n_levels}")
 
     warnings: list[str] = []
-    out = pg.kruskal(data=df, dv=dv, between=between)
+    with compute_guard("Kruskal-Wallis H"):
+        out = pg.kruskal(data=df, dv=dv, between=between)
     row = out.iloc[0].to_dict()
     h = float(row["H"])
     p_val = float(row.get("p-unc", row.get("p_unc", float("nan"))))

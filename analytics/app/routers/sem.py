@@ -80,7 +80,7 @@ def run_sem(req: AnalysisRequest) -> AnalysisResponse:
     try:
         params: pd.DataFrame = model.inspect()
     except Exception as exc:
-        raise HTTPException(500, f"Failed to extract parameters: {exc}")
+        raise HTTPException(400, f"Failed to extract parameters: {exc}")
 
     coef_rows: list[dict[str, Any]] = []
     for _, row in params.iterrows():

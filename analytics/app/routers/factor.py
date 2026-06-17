@@ -9,6 +9,7 @@ from app import VERSION
 from app.deps import require_secret
 from app.schemas.common import AnalysisRequest, AnalysisResponse, Meta, PlotSpec, TableBlock
 from app.core.csv_io import df_to_table
+from app.core.guards import compute_guard
 from app.core.plots import scree_spec, heatmap_spec
 
 router = APIRouter(tags=["factor"], dependencies=[Depends(require_secret)])
@@ -80,8 +81,11 @@ def factor(req: AnalysisRequest) -> AnalysisResponse:
     warnings: list[str] = []
 
     # Correlation matrix and its eigen-decomposition.
-    R = np.corrcoef(X, rowvar=False)
-    eigvals, eigvecs = np.linalg.eigh(R)
+    with compute_guard("Factor analysis"):
+        R = np.corrcoef(X, rowvar=False)
+        if not np.all(np.isfinite(R)):
+            raise HTTPException(400, "correlation matrix is not finite — an item may be constant or all-missing")
+        eigvals, eigvecs = np.linalg.eigh(R)
     order = np.argsort(eigvals)[::-1]
     eigvals = eigvals[order]
     eigvecs = eigvecs[:, order]

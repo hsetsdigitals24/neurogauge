@@ -8,6 +8,7 @@ from app import VERSION
 from app.deps import require_secret
 from app.schemas.common import AnalysisRequest, AnalysisResponse, Meta, PlotSpec, TableBlock
 from app.core.csv_io import df_to_table
+from app.core.guards import compute_guard
 from app.core.plots import boxplot_spec
 
 router = APIRouter(tags=["friedman"], dependencies=[Depends(require_secret)])
@@ -46,7 +47,8 @@ def friedman(req: AnalysisRequest) -> AnalysisResponse:
         raise HTTPException(400, f"within must have >= 2 levels, found {n_levels}")
 
     warnings: list[str] = []
-    out = pg.friedman(data=df, dv=dv, within=within, subject=subject)
+    with compute_guard("Friedman"):
+        out = pg.friedman(data=df, dv=dv, within=within, subject=subject)
     row = out.iloc[0].to_dict()
     p_val = float(row.get("p-unc", row.get("p_unc", float("nan"))))
     q_stat = float(row.get("Q", row.get("chi2", float("nan"))))

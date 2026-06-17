@@ -121,43 +121,47 @@ def descriptive(req: AnalysisRequest) -> AnalysisResponse:
                 f"{r['variable']}{('/' + r['group']) if r['group'] else ''}: n={r['n']} — CI not meaningful"
             )
 
-    # Build plots per variable
-    for col, by_group in series_per_var.items():
-        if not any(len(v) >= 2 for v in by_group.values()):
-            continue
-        plots.append(PlotSpec(
-            type="boxplot",
-            plotly=boxplot_spec(by_group, title=f"Distribution — {col}", y_label=col),
-        ))
-        bar_rows = [
-            r for r in rows
-            if r["variable"] == col and r.get("mean") is not None and r.get("ci_low") is not None
-        ]
-        if bar_rows:
+    # Build plots per variable. Plots are best-effort: the stats above are already computed and
+    # valuable, so a plotting failure on degenerate data is downgraded to a warning, never a 500.
+    try:
+        for col, by_group in series_per_var.items():
+            if not any(len(v) >= 2 for v in by_group.values()):
+                continue
             plots.append(PlotSpec(
-                type="bar_ci",
-                plotly=mean_ci_bar_spec(bar_rows, title=f"Mean ± CI — {col}", y_label=col),
+                type="boxplot",
+                plotly=boxplot_spec(by_group, title=f"Distribution — {col}", y_label=col),
             ))
+            bar_rows = [
+                r for r in rows
+                if r["variable"] == col and r.get("mean") is not None and r.get("ci_low") is not None
+            ]
+            if bar_rows:
+                plots.append(PlotSpec(
+                    type="bar_ci",
+                    plotly=mean_ci_bar_spec(bar_rows, title=f"Mean ± CI — {col}", y_label=col),
+                ))
 
-    # Radar / spider profile of group means across >= 3 numeric variables (z-scored so axes
-    # are comparable). Only meaningful when grouping, but rendered for the overall sample too.
-    if len(columns) >= 3:
-        z_means: dict[str, list[float]] = {}
-        norm: dict[str, tuple[float, float]] = {}
-        for col in columns:
-            arr = pd.to_numeric(df[col], errors="coerce")
-            norm[col] = (float(arr.mean()), float(arr.std(ddof=1)) or 1.0)
-        groups = df.groupby(group_by, dropna=False) if group_by else [("Overall", df)]
-        for grp, sub in groups:
-            vals = []
+        # Radar / spider profile of group means across >= 3 numeric variables (z-scored so axes
+        # are comparable). Only meaningful when grouping, but rendered for the overall sample too.
+        if len(columns) >= 3:
+            z_means: dict[str, list[float]] = {}
+            norm: dict[str, tuple[float, float]] = {}
             for col in columns:
-                m, sd = norm[col]
-                vals.append(round((float(pd.to_numeric(sub[col], errors="coerce").mean()) - m) / sd, 4))
-            z_means[str(grp)] = vals
-        plots.append(PlotSpec(
-            type="radar",
-            plotly=radar_spec(list(columns), z_means, title="Standardised profile (z-scores)"),
-        ))
+                arr = pd.to_numeric(df[col], errors="coerce")
+                norm[col] = (float(arr.mean()), float(arr.std(ddof=1)) or 1.0)
+            groups = df.groupby(group_by, dropna=False) if group_by else [("Overall", df)]
+            for grp, sub in groups:
+                vals = []
+                for col in columns:
+                    m, sd = norm[col]
+                    vals.append(round((float(pd.to_numeric(sub[col], errors="coerce").mean()) - m) / sd, 4))
+                z_means[str(grp)] = vals
+            plots.append(PlotSpec(
+                type="radar",
+                plotly=radar_spec(list(columns), z_means, title="Standardised profile (z-scores)"),
+            ))
+    except Exception as e:  # noqa: BLE001
+        warnings.append(f"Some plots could not be generated: {e}")
 
     # Categorical frequencies + pie charts.
     cat_stats: dict[str, Any] = {}

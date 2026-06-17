@@ -9,6 +9,7 @@ from app import VERSION
 from app.deps import require_secret
 from app.schemas.common import AnalysisRequest, AnalysisResponse, Meta, PlotSpec, TableBlock
 from app.core.csv_io import df_to_table
+from app.core.guards import compute_guard
 from app.core.plots import boxplot_spec
 
 router = APIRouter(tags=["reliability"], dependencies=[Depends(require_secret)])
@@ -70,11 +71,10 @@ def reliability(req: AnalysisRequest) -> AnalysisResponse:
     warnings: list[str] = []
 
     # Cronbach α via pingouin
-    alpha_val, ci = pg.cronbach_alpha(data=numeric)
+    with compute_guard("Reliability"):
+        alpha_val, ci = pg.cronbach_alpha(data=numeric)
+        omega = _mcdonald_omega(numeric)  # McDonald's ω (own implementation)
     cronbach_low, cronbach_high = float(ci[0]), float(ci[1])
-
-    # McDonald's ω (own implementation — pingouin doesn't expose it directly)
-    omega = _mcdonald_omega(numeric)
 
     # Per-item correlation with total - the classic "if item deleted" diagnostic.
     per_item: list[dict[str, Any]] = []

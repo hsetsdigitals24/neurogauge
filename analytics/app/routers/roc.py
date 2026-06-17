@@ -9,6 +9,7 @@ from app import VERSION
 from app.deps import require_secret
 from app.schemas.common import AnalysisRequest, AnalysisResponse, Meta, PlotSpec, TableBlock
 from app.core.csv_io import df_to_table
+from app.core.guards import compute_guard
 from app.core.plots import roc_curve_spec, confusion_matrix_spec
 
 router = APIRouter(tags=["roc"], dependencies=[Depends(require_secret)])
@@ -75,10 +76,13 @@ def roc(req: AnalysisRequest) -> AnalysisResponse:
         positive_label = pos
 
     scores = sub[score_col].to_numpy(dtype=float)
+    if y.sum() == 0 or y.sum() == len(y):
+        raise HTTPException(400, "ROC requires both positive and negative cases in the truth column")
 
-    fpr, tpr, thr = roc_curve(y, scores)
-    auc = float(roc_auc_score(y, scores))
-    ci_lo, ci_hi = _bootstrap_auc_ci(y, scores, n_boot=n_boot, alpha=alpha)
+    with compute_guard("ROC"):
+        fpr, tpr, thr = roc_curve(y, scores)
+        auc = float(roc_auc_score(y, scores))
+        ci_lo, ci_hi = _bootstrap_auc_ci(y, scores, n_boot=n_boot, alpha=alpha)
 
     # Youden's J = sensitivity + specificity − 1 = tpr − fpr ; argmax gives optimal threshold.
     j = tpr - fpr
