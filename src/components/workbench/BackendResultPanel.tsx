@@ -1,82 +1,8 @@
 "use client";
-import dynamic from "next/dynamic";
-import { useRef, useState, useEffect } from "react";
-import { AlertTriangle, Download, ChevronDown } from "lucide-react";
+import { AlertTriangle, Download } from "lucide-react";
 import type { AnalysisResponse } from "@/lib/analytics/client";
 import { downloadText } from "@/lib/csv";
-
-const Plot = dynamic(() => import("react-plotly.js"), { ssr: false });
-
-function PlotWithDownload({ plot, index }: { plot: AnalysisResponse["plots"][number]; index: number }) {
-  const containerRef = useRef<HTMLDivElement>(null);
-  const [menuOpen, setMenuOpen] = useState(false);
-
-  useEffect(() => {
-    if (!menuOpen) return;
-    const close = (e: MouseEvent) => {
-      if (!(e.target as HTMLElement).closest(`[data-plot-dl="${index}"]`)) setMenuOpen(false);
-    };
-    window.addEventListener("click", close);
-    return () => window.removeEventListener("click", close);
-  }, [menuOpen, index]);
-
-  async function downloadImage(format: "png" | "svg") {
-    const node = containerRef.current?.querySelector(".js-plotly-plot") as HTMLElement | null;
-    if (!node) return;
-    const Plotly = (await import("plotly.js-dist-min")).default as unknown as {
-      downloadImage: (gd: HTMLElement, opts: Record<string, unknown>) => Promise<string>;
-    };
-    await Plotly.downloadImage(node, {
-      format,
-      filename: `analysis_plot_${index + 1}`,
-      width: 1200,
-      height: 600,
-      ...(format === "png" ? { scale: 2 } : {}),
-    });
-    setMenuOpen(false);
-  }
-
-  return (
-    <div className="rounded-lg border border-[color:var(--border)] overflow-hidden">
-      <div className="flex justify-end px-2 pt-2">
-        <div className="relative" data-plot-dl={index}>
-          <button
-            type="button"
-            onClick={(e) => { e.stopPropagation(); setMenuOpen((o) => !o); }}
-            className="btn btn-ghost text-xs flex items-center gap-1 py-0.5"
-          >
-            <Download className="w-3 h-3" /> Download <ChevronDown className="w-3 h-3" />
-          </button>
-          {menuOpen && (
-            <div className="absolute right-0 mt-1 w-32 bg-white border border-[color:var(--border)] rounded-lg shadow-lg z-10 overflow-hidden">
-              <button type="button" onClick={() => downloadImage("png")} className="w-full text-left px-3 py-1.5 text-xs hover:bg-gray-50">PNG (2×)</button>
-              <button type="button" onClick={() => downloadImage("svg")} className="w-full text-left px-3 py-1.5 text-xs hover:bg-gray-50">SVG (vector)</button>
-            </div>
-          )}
-        </div>
-      </div>
-      <div ref={containerRef}>
-        <Plot
-          // eslint-disable-next-line @typescript-eslint/no-explicit-any
-          data={(plot.plotly as any).data}
-          layout={{
-            // eslint-disable-next-line @typescript-eslint/no-explicit-any
-            ...(plot.plotly as any).layout,
-            autosize: true,
-            // Respect a backend-provided margin (pie/radar/path diagrams need their own
-            // spacing); otherwise fall back to cartesian-friendly defaults.
-            // eslint-disable-next-line @typescript-eslint/no-explicit-any
-            margin: (plot.plotly as any).layout?.margin ?? { l: 50, r: 20, t: 40, b: 50 },
-            font: { size: 11 },
-          }}
-          style={{ width: "100%", minHeight: 260 }}
-          useResizeHandler
-          config={{ displayModeBar: false, responsive: true }}
-        />
-      </div>
-    </div>
-  );
-}
+import { PlotEditor } from "./PlotEditor";
 
 interface Props {
   result: AnalysisResponse;
@@ -184,7 +110,7 @@ export function BackendResultPanel({ result }: Props) {
 
       {/* Plotly charts */}
       {result.plots.map((plot, i) => (
-        <PlotWithDownload key={i} plot={plot} index={i} />
+        <PlotEditor key={i} plot={plot} index={i} />
       ))}
 
       {/* Meta footer */}
