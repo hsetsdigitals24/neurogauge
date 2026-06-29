@@ -74,6 +74,9 @@ def descriptive(req: AnalysisRequest) -> AnalysisResponse:
     ci_level = float(req.options.get("ci_level", 0.95))
     if not (0 < ci_level < 1):
         raise HTTPException(400, "ci_level must be between 0 and 1")
+    error_bar = str(req.options.get("error_bar", "ci")).lower()
+    if error_bar not in {"ci", "se", "sd"}:
+        raise HTTPException(400, "error_bar must be one of 'ci', 'se', 'sd'")
     if not columns and not cat_columns:
         raise HTTPException(400, "provide variables.columns and/or variables.cat_columns")
 
@@ -136,9 +139,12 @@ def descriptive(req: AnalysisRequest) -> AnalysisResponse:
                 if r["variable"] == col and r.get("mean") is not None and r.get("ci_low") is not None
             ]
             if bar_rows:
+                label = {"ci": "CI", "se": "SE", "sd": "SD"}[error_bar]
                 plots.append(PlotSpec(
                     type="bar_ci",
-                    plotly=mean_ci_bar_spec(bar_rows, title=f"Mean ± CI — {col}", y_label=col),
+                    plotly=mean_ci_bar_spec(
+                        bar_rows, title=f"Mean ± {label} — {col}", y_label=col, error_bar=error_bar
+                    ),
                 ))
 
         # Radar / spider profile of group means across >= 3 numeric variables (z-scored so axes

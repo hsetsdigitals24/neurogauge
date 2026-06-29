@@ -29,6 +29,7 @@ export const BACKEND_CONFIG: Partial<Record<DialogKey, BackendAnalysisConfig>> =
       { id: "cat_columns", label: "Categorical variables (counts + pie)", type: "column-any-multi", required: false },
       { id: "group_by", label: "Group by (optional)", type: "column-categorical", required: false },
       { id: "ci_level", label: "CI level", type: "select", choices: [["0.95", "95%"], ["0.99", "99%"], ["0.90", "90%"]], default: "0.95" },
+      { id: "error_bar", label: "Error bars", type: "select", choices: [["ci", "Confidence interval"], ["se", "Standard error"], ["sd", "Standard deviation"]], default: "ci" },
     ],
     toPayload: (v) => ({
       variables: {
@@ -36,7 +37,7 @@ export const BACKEND_CONFIG: Partial<Record<DialogKey, BackendAnalysisConfig>> =
         ...(v.cat_columns ? { cat_columns: v.cat_columns } : {}),
         ...(v.group_by ? { group_by: v.group_by } : {}),
       },
-      options: { ci_level: parseFloat(v.ci_level as string) },
+      options: { ci_level: parseFloat(v.ci_level as string), error_bar: (v.error_bar as string) ?? "ci" },
     }),
   },
 

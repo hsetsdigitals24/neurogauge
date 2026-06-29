@@ -126,16 +126,29 @@ def mean_ci_bar_spec(
     rows: list[dict[str, Any]],
     title: str,
     y_label: str,
+    error_bar: str = "ci",
 ) -> dict[str, Any]:
-    """Bar chart of means with asymmetric error bars from ci_low / ci_high.
+    """Bar chart of means with error bars.
 
-    Each row: {"group": str, "mean": float, "ci_low": float, "ci_high": float, "n": int}.
+    Each row: {"group": str, "mean": float, "ci_low": float, "ci_high": float,
+    "se": float, "sd": float, "n": int}. ``error_bar`` selects what the bars represent:
+    "ci" → confidence interval (asymmetric), "se" → ±1 standard error, "sd" → ±1 standard
+    deviation (both symmetric).
     """
     labels = [str(r.get("group") or y_label) for r in rows]
     means = [r["mean"] for r in rows]
-    err_plus = [r["ci_high"] - r["mean"] for r in rows]
-    err_minus = [r["mean"] - r["ci_low"] for r in rows]
     counts = [r.get("n", 0) for r in rows]
+
+    if error_bar == "se":
+        err = [r.get("se") or 0.0 for r in rows]
+        error_y: dict[str, Any] = {"type": "data", "symmetric": True, "array": err}
+    elif error_bar == "sd":
+        err = [r.get("sd") or 0.0 for r in rows]
+        error_y = {"type": "data", "symmetric": True, "array": err}
+    else:  # ci
+        err_plus = [r["ci_high"] - r["mean"] for r in rows]
+        err_minus = [r["mean"] - r["ci_low"] for r in rows]
+        error_y = {"type": "data", "symmetric": False, "array": err_plus, "arrayminus": err_minus}
 
     return {
         "data": [
@@ -145,10 +158,7 @@ def mean_ci_bar_spec(
                 "y": means,
                 "marker": {"color": "#6366f1"},
                 "error_y": {
-                    "type": "data",
-                    "symmetric": False,
-                    "array": err_plus,
-                    "arrayminus": err_minus,
+                    **error_y,
                     "color": "#ef4444",
                     "thickness": 1.5,
                     "width": 6,

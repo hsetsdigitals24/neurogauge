@@ -100,6 +100,41 @@ def test_descriptive_categorical_only(client, auth_headers):
     assert "variable" in body["table"]["headers"]
 
 
+def _bar_error_y(client, auth_headers, error_bar):
+    rows = [{"x": v} for v in [1, 2, 3, 4, 5, 6, 7, 8, 9, 10]]
+    payload = {"data": rows, "variables": {"columns": ["x"]}}
+    if error_bar is not None:
+        payload["options"] = {"error_bar": error_bar}
+    r = client.post("/v1/descriptive", headers=auth_headers, json=payload)
+    assert r.status_code == 200, r.text
+    bar = next(p for p in r.json()["plots"] if p["type"] == "bar_ci")
+    return bar["plotly"]["data"][0]["error_y"]
+
+
+def test_descriptive_error_bar_modes(client, auth_headers):
+    # Default + CI → asymmetric bars from the confidence interval.
+    for eb in (None, "ci"):
+        ey = _bar_error_y(client, auth_headers, eb)
+        assert ey["symmetric"] is False
+        assert "arrayminus" in ey
+
+    # SE / SD → symmetric bars, and SD bars are wider than SE bars for the same data.
+    se = _bar_error_y(client, auth_headers, "se")
+    sd = _bar_error_y(client, auth_headers, "sd")
+    assert se["symmetric"] is True and "arrayminus" not in se
+    assert sd["symmetric"] is True and "arrayminus" not in sd
+    assert sd["array"][0] > se["array"][0] > 0
+
+
+def test_descriptive_error_bar_invalid(client, auth_headers):
+    r = client.post(
+        "/v1/descriptive",
+        headers=auth_headers,
+        json={"data": [{"x": 1}], "variables": {"columns": ["x"]}, "options": {"error_bar": "nope"}},
+    )
+    assert r.status_code == 400
+
+
 def test_descriptive_missing_column(client, auth_headers):
     r = client.post(
         "/v1/descriptive",

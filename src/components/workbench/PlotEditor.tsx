@@ -44,6 +44,12 @@ function typeOptions(t: Trace): string[] {
 
 const SCATTER_MODES = ["markers", "lines", "lines+markers"];
 
+// Sensible default chart width (px) and slider bounds. Charts are centered within the
+// results pane and capped here so they read as tidy figures rather than full-width banners.
+const DEFAULT_MAX_WIDTH = 680;
+const MIN_WIDTH = 360;
+const WIDTH_RANGE_MAX = 1100;
+
 function colorEditable(t: Trace): boolean {
   return ["box", "violin", "bar", "scatter", "histogram"].includes(String(t.type));
 }
@@ -89,6 +95,9 @@ export function PlotEditor({ plot, index }: { plot: AnalysisResponse["plots"][nu
   const [spec, setSpec] = useState<PlotlySpec>(() => clone(plot.plotly));
   const [editing, setEditing] = useState(false);
   const [menuOpen, setMenuOpen] = useState(false);
+  // Per-chart display width (px). Charts are centered and capped at this so they don't
+  // stretch across a wide results pane. Editable via the Customize panel's Width slider.
+  const [maxWidth, setMaxWidth] = useState(DEFAULT_MAX_WIDTH);
 
   // Re-seed from the backend whenever a new analysis is run (the plot prop changes).
   // Done during render per React's "adjust state when a prop changes" guidance.
@@ -96,6 +105,7 @@ export function PlotEditor({ plot, index }: { plot: AnalysisResponse["plots"][nu
   if (seededFrom !== plot) {
     setSeededFrom(plot);
     setSpec(clone(plot.plotly));
+    setMaxWidth(DEFAULT_MAX_WIDTH);
   }
 
   useEffect(() => {
@@ -215,12 +225,27 @@ export function PlotEditor({ plot, index }: { plot: AnalysisResponse["plots"][nu
             <span className="font-semibold text-[color:var(--muted)] uppercase tracking-wide">Customize chart</span>
             <button
               type="button"
-              onClick={() => setSpec(clone(plot.plotly))}
+              onClick={() => { setSpec(clone(plot.plotly)); setMaxWidth(DEFAULT_MAX_WIDTH); }}
               className="btn btn-ghost text-xs flex items-center gap-1 py-0.5"
             >
               <RotateCcw className="w-3 h-3" /> Reset
             </button>
           </div>
+
+          {/* Display width */}
+          <label className="flex items-center gap-2">
+            <span className="text-[color:var(--muted)] min-w-[3.5rem]">Width</span>
+            <input
+              type="range"
+              min={MIN_WIDTH}
+              max={WIDTH_RANGE_MAX}
+              step={20}
+              value={maxWidth}
+              onChange={(e) => setMaxWidth(Number(e.target.value))}
+              className="flex-1 accent-[color:var(--primary)]"
+            />
+            <span className="font-mono text-[color:var(--muted)] w-12 text-right">{maxWidth}px</span>
+          </label>
 
           {/* Titles */}
           <div className="grid sm:grid-cols-3 gap-2">
@@ -321,29 +346,33 @@ export function PlotEditor({ plot, index }: { plot: AnalysisResponse["plots"][nu
         </div>
       )}
 
-      <div ref={containerRef}>
-        <Plot
-          // eslint-disable-next-line @typescript-eslint/no-explicit-any
-          data={(spec as any).data}
-          layout={{
+      <div ref={containerRef} className="px-2 pb-2">
+        <div style={{ maxWidth, marginInline: "auto" }}>
+          <Plot
             // eslint-disable-next-line @typescript-eslint/no-explicit-any
-            ...(spec as any).layout,
-            autosize: true,
-            // Respect a backend-provided margin (pie/radar/path diagrams need their own
-            // spacing); otherwise fall back to cartesian-friendly defaults.
-            // eslint-disable-next-line @typescript-eslint/no-explicit-any
-            margin: (spec as any).layout?.margin ?? { l: 50, r: 20, t: 40, b: 50 },
-            font: { size: 11 },
-          }}
-          style={{ width: "100%", minHeight: 260 }}
-          useResizeHandler
-          config={{
-            responsive: true,
-            displayModeBar: "hover",
-            displaylogo: false,
-            modeBarButtonsToRemove: ["lasso2d", "select2d"],
-          }}
-        />
+            data={(spec as any).data}
+            layout={{
+              // eslint-disable-next-line @typescript-eslint/no-explicit-any
+              ...(spec as any).layout,
+              autosize: true,
+              // Respect a backend-provided margin (pie/radar/path diagrams need their own
+              // spacing); otherwise fall back to cartesian-friendly defaults.
+              // eslint-disable-next-line @typescript-eslint/no-explicit-any
+              margin: (spec as any).layout?.margin ?? { l: 50, r: 20, t: 40, b: 50 },
+              font: { size: 11 },
+            }}
+            // Height tracks the chosen width (~0.62 aspect) so charts stay tidy rather than
+            // short-and-wide, with a floor so very narrow widths remain legible.
+            style={{ width: "100%", height: Math.max(280, Math.round(maxWidth * 0.62)) }}
+            useResizeHandler
+            config={{
+              responsive: true,
+              displayModeBar: "hover",
+              displaylogo: false,
+              modeBarButtonsToRemove: ["lasso2d", "select2d"],
+            }}
+          />
+        </div>
       </div>
     </div>
   );
