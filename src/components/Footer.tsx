@@ -6,7 +6,7 @@ export function Footer() {
   const year = new Date().getFullYear();
   return (
     <footer className="mt-auto w-full border-t border-[color:var(--border)] bg-white/60 backdrop-blur">
-      <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-10 py-8 grid gap-8 md:grid-cols-3">
+      <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-10 py-8 grid gap-8 md:grid-cols-4">
         <div>
           <Link href="/" className="flex items-center gap-2 group">
             {/* <div className="w-8 h-8 rounded-xl shimmer shadow" /> */}
@@ -30,6 +30,14 @@ export function Footer() {
             <li><Link href="/results" className="hover:text-[color:var(--fg)]">My results</Link></li>
             <li><Link href="/auth/login" className="hover:text-[color:var(--fg)]">Sign in</Link></li>
             <li><Link href="/auth/signup" className="hover:text-[color:var(--fg)]">For researchers</Link></li>
+          </ul>
+        </div>
+
+        <div>
+          <h4 className="text-sm font-semibold mb-3">Legal</h4>
+          <ul className="space-y-2 text-sm text-[color:var(--muted)]">
+            <li><Link href="/privacy" className="hover:text-[color:var(--fg)]">Privacy Policy</Link></li>
+            <li><Link href="/terms" className="hover:text-[color:var(--fg)]">Terms of Service</Link></li>
           </ul>
         </div>
 
@@ -72,7 +80,11 @@ export function Footer() {
       <div className="border-t border-[color:var(--border)]">
         <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-10 py-4 flex flex-col sm:flex-row items-center justify-between gap-2 text-xs text-[color:var(--muted)]">
           <span>© {year} Neurogauge Neuroscience Lab. All rights reserved.</span>
-          <span>For research use only.</span>
+          <span className="flex items-center gap-3">
+            <Link href="/privacy" className="hover:text-[color:var(--fg)]">Privacy</Link>
+            <Link href="/terms" className="hover:text-[color:var(--fg)]">Terms</Link>
+            <span>For research use only.</span>
+          </span>
         </div>
       </div>
     </footer>
