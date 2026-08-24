@@ -11,14 +11,27 @@ interface HeaderProps {
   title?: string;
 }
 
+type AccountType = "student" | "institution" | "research_group";
+
+// Human-readable label for the account type badge shown in the header.
+const ACCOUNT_TYPE_LABEL: Record<AccountType, string> = {
+  student: "Student",
+  institution: "Institution",
+  research_group: "Research group",
+};
+
 export function Header({ showBackButton = false, backHref = "/", title }: HeaderProps) {
-  const [user, setUser] = useState<{ name: string; email: string } | null>(null);
+  const [user, setUser] = useState<{ name: string; email: string; accountType?: AccountType } | null>(null);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     fetch("/api/auth/me")
-      .then((r) => r.json())
+      .then(async (r) => {
+        const text = await r.text();
+        return text ? JSON.parse(text) : {};
+      })
       .then((d) => setUser(d.user || null))
+      .catch(() => setUser(null))
       .finally(() => setLoading(false));
   }, []);
 
@@ -51,9 +64,21 @@ export function Header({ showBackButton = false, backHref = "/", title }: Header
             <div className="font-bold text-base sm:text-lg md:text-xl leading-tight gradient-text truncate"> 
              <Image src="/assets/Asset 4@4x.png" alt="Logo" width={100} height={30} className="h-auto w-auto" />
             </div>
-            {!title && (
+            {!title && !user && (
               <div className="text-xs leading-tight text-[color:var(--muted)] hidden sm:block truncate">
                 Neuroscience Lab
+              </div>
+            )}
+            {!title && user && (
+              <div className="flex items-center gap-1.5 min-w-0">
+                <span className="text-xs leading-tight text-[color:var(--fg)] font-semibold truncate">
+                  {user.name}
+                </span>
+                {user.accountType && (
+                  <span className="hidden sm:inline-flex flex-shrink-0 items-center rounded-full bg-indigo-50 text-indigo-600 px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wide">
+                    {ACCOUNT_TYPE_LABEL[user.accountType]}
+                  </span>
+                )}
               </div>
             )}
             {title && (
@@ -68,9 +93,9 @@ export function Header({ showBackButton = false, backHref = "/", title }: Header
       <nav className="flex items-center gap-2 sm:gap-3 flex-shrink-0">
         {!loading && user ? (
           <>
-            <span className="text-xs sm:text-sm text-[color:var(--muted)] hidden md:inline-block whitespace-nowrap">
-              {user.name}
-            </span>
+            <Link href="/dashboard" className="btn btn-ghost text-xs sm:text-sm hidden sm:inline-flex">
+              Dashboard
+            </Link>
             <Link href="/results" className="btn btn-ghost text-xs sm:text-sm hidden sm:inline-flex">
               Results
             </Link>

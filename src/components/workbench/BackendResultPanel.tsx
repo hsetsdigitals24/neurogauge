@@ -1,13 +1,20 @@
 "use client";
-import { useEffect } from "react";
-import { AlertTriangle, Download } from "lucide-react";
+import { useEffect, useState } from "react";
+import { AlertTriangle, Download, Sparkles, Loader2, Copy } from "lucide-react";
 import type { AnalysisResponse } from "@/lib/analytics/client";
+import type { ResultInterpretation } from "@/lib/ai/schemas";
 import { downloadText } from "@/lib/csv";
 import { notify } from "@/lib/toast";
 import { PlotEditor } from "./PlotEditor";
 
 interface Props {
   result: AnalysisResponse;
+  /** Context passed to the AI interpreter. When omitted, the button is hidden. */
+  analysis?: {
+    label: string;
+    variables?: Record<string, unknown>;
+    options?: Record<string, unknown>;
+  };
 }
 
 type TableBlock = { headers: string[]; rows: (string | number | null)[][] };
@@ -53,7 +60,7 @@ function ResultTable({ block }: { block: TableBlock }) {
   );
 }
 
-export function BackendResultPanel({ result }: Props) {
+export function BackendResultPanel({ result, analysis }: Props) {
   const postHoc = asTableBlock(result.stats?.post_hoc);
 
   // Surface analysis warnings as toasts when results arrive (the inline banner below
@@ -107,6 +114,11 @@ export function BackendResultPanel({ result }: Props) {
         </div>
       )}
 
+      {/* AI interpretation */}
+      {analysis && result.table.headers.length > 0 && (
+        <AiInterpretation result={result} analysis={analysis} />
+      )}
+
       {/* Post-hoc pairwise comparisons (e.g. Tukey, Dunn, pairwise Wilcoxon) */}
       {postHoc && postHoc.headers.length > 0 && (
         <div>
@@ -127,6 +139,121 @@ export function BackendResultPanel({ result }: Props) {
         n = {result.meta.n.toLocaleString()} · {result.meta.duration_ms} ms · v{result.meta.version}
         {result.cached && " · cached"}
       </p>
+    </div>
+  );
+}
+
+// ─── AI interpretation ──────────────────────────────────────────────────────
+
+function AiInterpretation({
+  result,
+  analysis,
+}: {
+  result: AnalysisResponse;
+  analysis: NonNullable<Props["analysis"]>;
+}) {
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [data, setData] = useState<ResultInterpretation | null>(null);
+
+  async function interpret() {
+    setLoading(true);
+    setError(null);
+    try {
+      const res = await fetch("/api/ai/interpret", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          analysisLabel: analysis.label,
+          variables: analysis.variables,
+          options: analysis.options,
+          result: {
+            stats: result.stats,
+            table: result.table,
+            warnings: result.warnings,
+            meta: { n: result.meta.n },
+          },
+        }),
+      });
+      const json = await res.json();
+      if (!res.ok) throw new Error(json.error || `Failed (${res.status})`);
+      setData(json.interpretation as ResultInterpretation);
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Interpretation failed");
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  function copyApa() {
+    if (!data?.apa) return;
+    navigator.clipboard.writeText(data.apa).then(
+      () => notify.success("APA sentence copied"),
+      () => notify.error("Copy failed"),
+    );
+  }
+
+  if (!data) {
+    return (
+      <div>
+        <button
+          onClick={interpret}
+          disabled={loading}
+          className="btn btn-ghost text-xs flex items-center gap-1.5 border border-indigo-200 text-indigo-700 hover:bg-indigo-50 disabled:opacity-60"
+        >
+          {loading ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Sparkles className="w-3.5 h-3.5" />}
+          {loading ? "Interpreting…" : "Interpret with AI"}
+        </button>
+        {error && (
+          <div className="mt-2 p-2 bg-red-50 rounded-lg text-xs text-red-700 border border-red-100">{error}</div>
+        )}
+      </div>
+    );
+  }
+
+  return (
+    <div className="rounded-lg border border-indigo-100 bg-indigo-50/40 p-3 space-y-2.5">
+      <div className="flex items-center gap-1.5 text-xs font-semibold text-indigo-700">
+        <Sparkles className="w-3.5 h-3.5" /> AI interpretation
+        {data.significant != null && (
+          <span
+            className={`ml-1 px-1.5 py-0.5 rounded-full text-[10px] font-medium ${
+              data.significant ? "bg-emerald-100 text-emerald-700" : "bg-gray-200 text-gray-600"
+            }`}
+          >
+            {data.significant ? "Significant" : "Not significant"}
+          </span>
+        )}
+        <span className="ml-auto text-[10px] font-normal text-[color:var(--muted)]">AI-generated · verify before reporting</span>
+      </div>
+
+      <p className="text-xs text-gray-700 leading-relaxed">{data.summary}</p>
+
+      <div>
+        <div className="flex items-center justify-between mb-1">
+          <span className="text-[10px] font-semibold text-[color:var(--muted)] uppercase tracking-wide">APA write-up</span>
+          <button onClick={copyApa} className="btn btn-ghost text-[10px] flex items-center gap-1 py-0.5">
+            <Copy className="w-3 h-3" /> Copy
+          </button>
+        </div>
+        <p className="text-xs text-gray-800 leading-relaxed font-serif bg-white rounded-md border border-indigo-100 p-2">
+          {data.apa}
+        </p>
+      </div>
+
+      {data.effectSize && (
+        <p className="text-xs text-gray-700">
+          <span className="font-semibold">Effect size:</span> {data.effectSize}
+        </p>
+      )}
+
+      {data.caveats.length > 0 && (
+        <ul className="text-xs text-amber-800 space-y-0.5 list-disc pl-4">
+          {data.caveats.map((c, i) => (
+            <li key={i}>{c}</li>
+          ))}
+        </ul>
+      )}
     </div>
   );
 }

@@ -7,12 +7,14 @@ import {
   ArrowLeft, Copy, Check, Users, Plus, Trash2, X,
   ChevronDown, ChevronUp, FlaskConical, ExternalLink, Download,
   Link2Icon,
-  ChevronLeft,
+  ChevronLeft, Printer, Upload, Wifi,
 } from "lucide-react";
-import { CustomQuestion, Level, SHAPE_LIBRARY, StimulusType, StudyConfig } from "@/lib/types";
+import { CustomQuestion, Level, SHAPE_LIBRARY, StimulusType, StudyConfig, QItem, QuestionnaireConfig, isQuestionnaireConfig } from "@/lib/types";
 import { summarize } from "@/lib/scoring";
 import { generateId } from "@/lib/id";
 import { notify } from "@/lib/toast";
+import QuestionnaireBuilder from "@/components/questionnaire/QuestionnaireBuilder";
+import { normalizeQuestionKeys } from "@/lib/questionnaire";
 
 const TYPES: { v: StimulusType; label: string }[] = [
   { v: "letters", label: "Letters" },
@@ -33,7 +35,7 @@ interface Project {
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 type TestSession = any;
 
-type Tab = "overview" | "config" | "results" | "analysis" | "collaborators";
+type Tab = "overview" | "config" | "collect" | "results" | "analysis" | "collaborators";
 
 export default function ProjectDetailPage() {
   const { id } = useParams<{ id: string }>();
@@ -52,6 +54,8 @@ export default function ProjectDetailPage() {
   const [cancelingInviteId, setCancelingInviteId] = useState<string | null>(null);
   const [inviting, setInviting] = useState(false);
   const [expandedSession, setExpandedSession] = useState<string | null>(null);
+  // Questionnaire projects edit their question list separately from the N-back cfg.
+  const [qQuestions, setQQuestions] = useState<QItem[]>([]);
 
   const load = useCallback(async () => {
     const [pRes, sRes] = await Promise.all([
@@ -64,6 +68,9 @@ export default function ProjectDetailPage() {
     setIsOwner(pData.isOwner);
     setCfg(pData.project.config);
     setProjectName(pData.project.name);
+    if (isQuestionnaireConfig(pData.project.config)) {
+      setQQuestions((pData.project.config.questions ?? []) as QItem[]);
+    }
     setSessions(Array.isArray(sData) ? sData : []);
     setLoading(false);
   }, [id, router]);
@@ -89,6 +96,37 @@ export default function ProjectDetailPage() {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ name: projectName, config: cfg }),
+      });
+      if (!res.ok) {
+        const data = await res.json().catch(() => ({}));
+        notify.error(data.error ?? "Failed to save changes");
+        setSaveStatus("idle");
+        return;
+      }
+      setSaveStatus("saved");
+      setTimeout(() => setSaveStatus("idle"), 2000);
+    } catch {
+      notify.error("Network error");
+      setSaveStatus("idle");
+    }
+  }
+
+  async function saveQuestionnaire() {
+    if (!cfg) return;
+    const cleaned = qQuestions.filter((q) => q.prompt.trim());
+    if (cleaned.length === 0) { notify.error("Add at least one question"); return; }
+    const nextConfig: QuestionnaireConfig = {
+      ...(cfg as unknown as QuestionnaireConfig),
+      kind: "questionnaire",
+      studyName: projectName,
+      questions: normalizeQuestionKeys(cleaned),
+    };
+    setSaveStatus("saving");
+    try {
+      const res = await fetch(`/api/projects/${id}`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ name: projectName, config: nextConfig }),
       });
       if (!res.ok) {
         const data = await res.json().catch(() => ({}));
@@ -195,10 +233,13 @@ export default function ProjectDetailPage() {
     ? `${window.location.origin}/p/${project.shareToken}`
     : `/p/${project.shareToken}`;
 
+  const isQ = isQuestionnaireConfig(cfg);
+
   const TABS: { key: Tab; label: string }[] = [
     { key: "overview", label: "Overview" },
-    { key: "config", label: "Configuration" },
-    { key: "results", label: `Results (${sessions.length})` },
+    { key: "config", label: isQ ? "Questions" : "Configuration" },
+    { key: "collect", label: "Collect" },
+    { key: "results", label: `${isQ ? "Responses" : "Results"} (${sessions.length})` },
     { key: "analysis", label: "Analysis" },
     { key: "collaborators", label: `Collaborators (${project.collaborators.length})` },
   ];
@@ -278,12 +319,20 @@ export default function ProjectDetailPage() {
 
                 {/* Stats */}
                 <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-                  {[
-                    { label: "Sessions", value: sessions.length },
-                    { label: "Collaborators", value: project.collaborators.length },
-                    { label: "Stimulus types", value: cfg.stimulusTypes.length },
-                    { label: "N-back levels", value: cfg.levels.length },
-                  ].map((s) => (
+                  {(isQ
+                    ? [
+                        { label: "Responses", value: sessions.length },
+                        { label: "Collaborators", value: project.collaborators.length },
+                        { label: "Questions", value: qQuestions.length },
+                        { label: "Type", value: "Survey" as string | number },
+                      ]
+                    : [
+                        { label: "Sessions", value: sessions.length },
+                        { label: "Collaborators", value: project.collaborators.length },
+                        { label: "Stimulus types", value: cfg.stimulusTypes.length },
+                        { label: "N-back levels", value: cfg.levels.length },
+                      ]
+                  ).map((s) => (
                     <div key={s.label} className="card p-4 text-center">
                       <div className="text-3xl font-extrabold gradient-text">{s.value}</div>
                       <div className="text-xs text-[color:var(--muted)] mt-1">{s.label}</div>
@@ -331,7 +380,35 @@ export default function ProjectDetailPage() {
             )}
 
             {/* CONFIG TAB */}
-            {tab === "config" && (
+            {/* CONFIG TAB — questionnaire builder */}
+            {tab === "config" && isQ && (
+              <div className="space-y-5">
+                <div className="card p-6">
+                  <label className="label text-base font-bold">Project name</label>
+                  <input className="input mt-1" value={projectName}
+                    onChange={(e) => setProjectName(e.target.value)}
+                    disabled={!isOwner} />
+                </div>
+                <div className="card p-6">
+                  <h2 className="font-bold text-lg mb-4">Questions</h2>
+                  <QuestionnaireBuilder questions={qQuestions} onChange={setQQuestions} />
+                </div>
+                {isOwner && (
+                  <div className="flex items-center gap-3">
+                    <button className="btn btn-primary" onClick={saveQuestionnaire} disabled={saveStatus === "saving"}>
+                      {saveStatus === "saving" ? "Saving…" : "Save changes"}
+                    </button>
+                    {saveStatus === "saved" && (
+                      <motion.span initial={{ opacity: 0 }} animate={{ opacity: 1 }}
+                        className="text-sm font-semibold text-[color:var(--success)]">✓ Saved</motion.span>
+                    )}
+                  </div>
+                )}
+              </div>
+            )}
+
+            {/* CONFIG TAB — N-back study config */}
+            {tab === "config" && !isQ && (
               <div className="space-y-5">
                 <div className="card p-6">
                   <label className="label text-base font-bold">Project name</label>
@@ -493,6 +570,17 @@ export default function ProjectDetailPage() {
               </div>
             )}
 
+            {/* COLLECT TAB */}
+            {tab === "collect" && (
+              <CollectTab
+                projectId={id}
+                shareUrl={shareUrl}
+                shareToken={project.shareToken}
+                isQ={isQ}
+                onImported={load}
+              />
+            )}
+
             {/* RESULTS TAB */}
             {tab === "results" && (
               <div className="space-y-4">
@@ -503,18 +591,25 @@ export default function ProjectDetailPage() {
                 {sessions.length === 0 && (
                   <div className="card p-10 text-center">
                     <FlaskConical className="w-10 h-10 mx-auto text-[color:var(--muted)] mb-3" />
-                    <p className="text-[color:var(--muted)]">No sessions yet. Share the link to get started.</p>
+                    <p className="text-[color:var(--muted)]">No {isQ ? "responses" : "sessions"} yet. Share the link to get started.</p>
                   </div>
                 )}
-                {sessions.map((s: TestSession) => (
-                  <SessionRow
-                    key={s.id}
-                    session={s}
-                    customQuestions={cfg.customQuestions ?? []}
-                    expanded={expandedSession === s.id}
-                    onToggle={() => setExpandedSession(expandedSession === s.id ? null : s.id)}
-                  />
-                ))}
+                {isQ
+                  ? sessions.length > 0 && (
+                      <QuestionnaireResponses
+                        questions={qQuestions}
+                        sessions={sessions as TestSession[]}
+                      />
+                    )
+                  : sessions.map((s: TestSession) => (
+                      <SessionRow
+                        key={s.id}
+                        session={s}
+                        customQuestions={cfg.customQuestions ?? []}
+                        expanded={expandedSession === s.id}
+                        onToggle={() => setExpandedSession(expandedSession === s.id ? null : s.id)}
+                      />
+                    ))}
               </div>
             )}
 
@@ -643,6 +738,249 @@ export default function ProjectDetailPage() {
           </motion.div>
         </AnimatePresence>
       </main> 
+  );
+}
+
+/* ── Collect tab: online (share link) + offline (print / upload) ─────── */
+type SiteLite = { id: string; name: string; code: string };
+
+function CollectTab({ projectId, shareUrl, shareToken, isQ, onImported }: {
+  projectId: string;
+  shareUrl: string;
+  shareToken: string;
+  isQ: boolean;
+  onImported: () => void;
+}) {
+  const [copied, setCopied] = useState(false);
+  const [copiedSite, setCopiedSite] = useState<string | null>(null);
+  const [sites, setSites] = useState<SiteLite[]>([]);
+  const printUrl = `/p/${shareToken}/print`;
+
+  useEffect(() => {
+    fetch(`/api/sites`)
+      .then((r) => (r.ok ? r.json() : { sites: [] }))
+      .then((d) => setSites((d.sites as SiteLite[]) ?? []))
+      .catch(() => {});
+  }, []);
+
+  async function copy() {
+    await navigator.clipboard.writeText(shareUrl);
+    setCopied(true);
+    setTimeout(() => setCopied(false), 2000);
+  }
+
+  async function copySite(code: string) {
+    await navigator.clipboard.writeText(`${shareUrl}?site=${code}`);
+    setCopiedSite(code);
+    setTimeout(() => setCopiedSite(null), 2000);
+  }
+
+  return (
+    <div className="space-y-5">
+      {/* Online */}
+      <div className="card p-6">
+        <div className="flex items-center gap-2 mb-1">
+          <Wifi className="w-5 h-5 text-[color:var(--primary)]" />
+          <h2 className="font-bold text-lg">Collect online</h2>
+        </div>
+        <p className="text-sm text-[color:var(--muted)] mb-4">
+          Share this link so participants can complete the {isQ ? "questionnaire" : "task"} in a browser.
+          Responses are saved automatically.
+        </p>
+        <div className="flex gap-2 flex-wrap">
+          <div className="flex-1 min-w-0 input text-sm font-mono bg-gray-50 select-all truncate flex items-center">
+            {shareUrl}
+          </div>
+          <button className="btn btn-primary flex items-center gap-2 shrink-0" onClick={copy}>
+            {copied ? <><Check className="w-4 h-4" /> Copied!</> : <><Copy className="w-4 h-4" /> Copy link</>}
+          </button>
+          <a href={shareUrl} target="_blank" rel="noreferrer" className="btn btn-ghost flex items-center gap-1 shrink-0">
+            Preview <ExternalLink className="w-4 h-4" />
+          </a>
+        </div>
+
+        {/* Per-site links for multicenter studies */}
+        {sites.length > 0 && (
+          <div className="mt-4 pt-4 border-t border-[color:var(--border)]">
+            <p className="text-xs font-semibold text-[color:var(--muted)] uppercase tracking-wide mb-2">
+              Per-site links (multicenter)
+            </p>
+            <p className="text-xs text-[color:var(--muted)] mb-3">
+              Give each centre its own link so submissions are attributed to that site on the institution dashboard.
+            </p>
+            <div className="space-y-2">
+              {sites.map((s) => (
+                <div key={s.id} className="flex items-center gap-2 flex-wrap">
+                  <span className="text-sm font-medium min-w-[8rem]">{s.name}</span>
+                  <div className="flex-1 min-w-0 input text-xs font-mono bg-gray-50 truncate flex items-center">
+                    {shareUrl}?site={s.code}
+                  </div>
+                  <button className="btn btn-ghost text-xs flex items-center gap-1 shrink-0" onClick={() => copySite(s.code)}>
+                    {copiedSite === s.code ? <><Check className="w-3.5 h-3.5" /> Copied</> : <><Copy className="w-3.5 h-3.5" /> Copy</>}
+                  </button>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+      </div>
+
+      {/* Offline */}
+      <div className="card p-6">
+        <div className="flex items-center gap-2 mb-1">
+          <Printer className="w-5 h-5 text-[color:var(--primary)]" />
+          <h2 className="font-bold text-lg">Collect offline</h2>
+        </div>
+        <p className="text-sm text-[color:var(--muted)] mb-4">
+          Print a paper form to administer without internet, then upload the collected
+          responses back into this project. Uploaded rows appear in Results and analytics
+          just like online submissions.
+        </p>
+        <div className="grid sm:grid-cols-2 gap-4">
+          <div className="border border-[color:var(--border)] rounded-xl p-4">
+            <h3 className="font-semibold text-sm mb-1">1 · Print form</h3>
+            <p className="text-xs text-[color:var(--muted)] mb-3">
+              {isQ
+                ? "A fill-in questionnaire with consent and every question."
+                : "A recording sheet for in-person session metrics, NASA-TLX and custom questions."}
+            </p>
+            <a href={printUrl} target="_blank" rel="noreferrer"
+              className="btn btn-ghost text-sm flex items-center gap-2 w-fit">
+              <Printer className="w-4 h-4" /> Open printable form
+            </a>
+          </div>
+          <div className="border border-[color:var(--border)] rounded-xl p-4">
+            <h3 className="font-semibold text-sm mb-1">2 · Upload responses</h3>
+            <p className="text-xs text-[color:var(--muted)] mb-3">
+              Import a CSV (one row per respondent). Columns are matched to your
+              questions by name; include an <span className="font-mono">Email</span> column to identify rows.
+            </p>
+            <ImportDataDialog projectId={projectId} isQ={isQ} sites={sites} onImported={onImported} />
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function ImportDataDialog({ projectId, isQ, sites, onImported }: {
+  projectId: string;
+  isQ: boolean;
+  sites: SiteLite[];
+  onImported: () => void;
+}) {
+  const [open, setOpen] = useState(false);
+  const [csvText, setCsvText] = useState("");
+  const [siteId, setSiteId] = useState("");
+  const [busy, setBusy] = useState(false);
+  const [result, setResult] = useState<{ created: number; skipped: number; total: number; errors: string[] } | null>(null);
+
+  async function onFile(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    setCsvText(await file.text());
+  }
+
+  async function submit() {
+    if (!csvText.trim()) { notify.error("Paste or choose a CSV first"); return; }
+    setBusy(true);
+    setResult(null);
+    try {
+      const res = await fetch(`/api/projects/${projectId}/import`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ csvText, siteId: siteId || undefined }),
+      });
+      const data = await res.json();
+      if (!res.ok) { notify.error(data.error ?? "Import failed"); return; }
+      setResult(data);
+      if (data.created > 0) {
+        notify.success(`Imported ${data.created} response${data.created !== 1 ? "s" : ""}`);
+        onImported();
+      } else {
+        notify.error("No rows were imported — check the column names.");
+      }
+    } catch {
+      notify.error("Network error");
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  function close() {
+    setOpen(false);
+    setCsvText("");
+    setSiteId("");
+    setResult(null);
+  }
+
+  return (
+    <>
+      <button className="btn btn-primary text-sm flex items-center gap-2 w-fit" onClick={() => setOpen(true)}>
+        <Upload className="w-4 h-4" /> Upload CSV
+      </button>
+      {open && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/40" onClick={close}>
+          <div className="card p-6 w-full max-w-lg max-h-[90vh] overflow-y-auto" onClick={(e) => e.stopPropagation()}>
+            <div className="flex items-center justify-between mb-3">
+              <h3 className="font-bold text-lg">Upload responses</h3>
+              <button className="btn btn-ghost p-1" onClick={close}><X className="w-5 h-5" /></button>
+            </div>
+            <p className="text-sm text-[color:var(--muted)] mb-4">
+              One row per respondent. The first row must be column headers. Include an{" "}
+              <span className="font-mono">Email</span> column, plus a column per question
+              (matched to the question text{isQ ? "" : " or custom-question prompt"}).
+              {!isQ && <> For N-back demographics use <span className="font-mono">age</span>,{" "}
+                <span className="font-mono">handedness</span>, <span className="font-mono">education</span>.</>}
+            </p>
+
+            {sites.length > 0 && (
+              <div className="mb-3">
+                <label className="label">Attribute to site (optional)</label>
+                <select className="select" value={siteId} onChange={(e) => setSiteId(e.target.value)}>
+                  <option value="">— No site —</option>
+                  {sites.map((s) => <option key={s.id} value={s.id}>{s.name}</option>)}
+                </select>
+              </div>
+            )}
+
+            <label className="btn btn-ghost text-sm flex items-center gap-2 w-fit mb-3 cursor-pointer">
+              <Upload className="w-4 h-4" /> Choose CSV file
+              <input type="file" accept=".csv,text/csv" className="hidden" onChange={onFile} />
+            </label>
+
+            <textarea
+              className="textarea font-mono text-xs"
+              rows={8}
+              placeholder={`Email,Question one,Question two\nalice@example.com,4,Yes\nbob@example.com,3,No`}
+              value={csvText}
+              onChange={(e) => setCsvText(e.target.value)}
+            />
+
+            {result && (
+              <div className="mt-3 p-3 rounded-lg bg-gray-50 border border-[color:var(--border)] text-sm">
+                <p className="font-semibold">
+                  Imported {result.created} of {result.total} row{result.total !== 1 ? "s" : ""}
+                  {result.skipped > 0 && <span className="text-[color:var(--muted)]"> · {result.skipped} skipped</span>}
+                </p>
+                {result.errors.length > 0 && (
+                  <ul className="mt-2 text-xs text-[color:var(--danger)] list-disc pl-4 space-y-0.5">
+                    {result.errors.map((er, i) => <li key={i}>{er}</li>)}
+                  </ul>
+                )}
+              </div>
+            )}
+
+            <div className="mt-4 flex gap-2 justify-end">
+              <button className="btn btn-ghost" onClick={close}>{result?.created ? "Done" : "Cancel"}</button>
+              <button className="btn btn-primary" onClick={submit} disabled={busy}>
+                {busy ? "Importing…" : "Import"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+    </>
   );
 }
 
@@ -927,6 +1265,42 @@ function SessionRow({ session, customQuestions, expanded, onToggle }: {
           </motion.div>
         )}
       </AnimatePresence>
+    </div>
+  );
+}
+
+/* Questionnaire responses: one row per respondent, one column per question. */
+function QuestionnaireResponses({ questions, sessions }: {
+  questions: QItem[];
+  sessions: TestSession[];
+}) {
+  return (
+    <div className="card p-4 overflow-x-auto">
+      <table className="w-full text-sm">
+        <thead className="text-left text-[color:var(--muted)]">
+          <tr className="border-b border-[color:var(--border)]">
+            <th className="py-2 pr-4 whitespace-nowrap">Email</th>
+            {questions.map((q) => (
+              <th key={q.id} className="py-2 pr-4 min-w-[10rem]" title={q.prompt}>
+                {q.prompt.length > 40 ? q.prompt.slice(0, 40) + "…" : q.prompt}
+              </th>
+            ))}
+          </tr>
+        </thead>
+        <tbody>
+          {sessions.map((s: TestSession) => {
+            const answers = (s.customAnswers ?? {}) as Record<string, string>;
+            return (
+              <tr key={s.id} className="border-b border-[color:var(--border)] align-top">
+                <td className="py-2 pr-4 whitespace-nowrap">{s.takerEmail || "—"}</td>
+                {questions.map((q) => (
+                  <td key={q.id} className="py-2 pr-4">{answers[q.id] ?? "—"}</td>
+                ))}
+              </tr>
+            );
+          })}
+        </tbody>
+      </table>
     </div>
   );
 }

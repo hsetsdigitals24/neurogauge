@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
+import { isQuestionnaireConfig } from "@/lib/types";
 
 type Ctx = { params: Promise<{ shareToken: string }> };
 
@@ -10,11 +11,12 @@ export async function POST(req: Request, ctx: Ctx) {
 
   const project = await db.project.findUnique({
     where: { shareToken },
-    select: { id: true },
+    select: { id: true, config: true, ownerId: true },
   });
   if (!project) return NextResponse.json({ error: "Project not found" }, { status: 404 });
 
   const body = await req.json();
+  const isQuestionnaire = isQuestionnaireConfig(project.config);
   const {
     participantId,
     takerEmail,
@@ -27,11 +29,31 @@ export async function POST(req: Request, ctx: Ctx) {
     demographics,
     globalTLX,
     customAnswers,
+    answers,
     blocks,
     clientSubmissionId,
+    siteCode,
   } = body;
 
-  if (!takerEmail || !takerAge || !takerHandedness || !takerEducation) {
+  // Multicenter tagging: a per-site collection link carries a `siteCode` we resolve
+  // to one of the project owner's Sites. Unknown/absent codes leave the session
+  // untagged rather than failing the submission.
+  let siteId: string | null = null;
+  if (siteCode) {
+    const site = await db.site.findUnique({
+      where: { userId_code: { userId: project.ownerId, code: String(siteCode).toLowerCase().trim() } },
+      select: { id: true },
+    });
+    siteId = site?.id ?? null;
+  }
+
+  // Questionnaire projects collect consent + email only; N-back needs the full
+  // taker profile. Answers land in customAnswers either way.
+  if (isQuestionnaire) {
+    if (!takerEmail) {
+      return NextResponse.json({ error: "Email is required" }, { status: 400 });
+    }
+  } else if (!takerEmail || !takerAge || !takerHandedness || !takerEducation) {
     return NextResponse.json({ error: "Missing required taker info" }, { status: 400 });
   }
 
@@ -48,17 +70,19 @@ export async function POST(req: Request, ctx: Ctx) {
     session = await db.testSession.create({
     data: {
       projectId: project.id,
+      siteId: siteId ?? undefined,
       participantId,
       takerEmail: takerEmail.toLowerCase().trim(),
-      takerAge,
-      takerHandedness,
-      takerEducation,
-      startedAt: new Date(startedAt),
+      // TestSession requires these non-null; questionnaires don't collect them.
+      takerAge: takerAge ?? "",
+      takerHandedness: takerHandedness ?? "",
+      takerEducation: takerEducation ?? "",
+      startedAt: startedAt ? new Date(startedAt) : new Date(),
       finishedAt: finishedAt ? new Date(finishedAt) : null,
       consentGiven: consentGiven ?? false,
       demographics: demographics ?? undefined,
       globalTLX: globalTLX ?? undefined,
-      customAnswers: customAnswers ?? undefined,
+      customAnswers: (isQuestionnaire ? answers : customAnswers) ?? undefined,
       clientSubmissionId: clientSubmissionId ?? undefined,
       blocks: {
         create: (blocks ?? []).map((b: {

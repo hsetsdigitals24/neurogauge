@@ -1,0 +1,8 @@
+Environment variables loaded from .env
+Prisma schema loaded from prisma/schema.prisma
+Datasource "db": PostgreSQL database "postgres", schema "public" at "db.prisma.io:5432"
+
+11 migrations found in prisma/migrations
+
+
+No pending migrations to apply.

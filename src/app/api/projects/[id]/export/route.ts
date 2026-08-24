@@ -2,8 +2,8 @@ import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { getSessionUser } from "@/lib/auth";
 import { summarize } from "@/lib/scoring";
-import { dedupeSessions } from "@/lib/analytics/dataset";
-import type { Trial } from "@/lib/types";
+import { dedupeSessions, buildQuestionnaireDataset } from "@/lib/analytics/dataset";
+import { isQuestionnaireConfig, type Trial, type QuestionnaireConfig } from "@/lib/types";
 
 type Ctx = { params: Promise<{ id: string }> };
 
@@ -70,6 +70,21 @@ export async function GET(req: Request, ctx: Ctx) {
 
   let body: string;
   let filename: string;
+
+  // Questionnaire projects export a wide "one row per respondent" CSV.
+  if (isQuestionnaireConfig(project.config)) {
+    const { rows, schema } = buildQuestionnaireDataset(sessions, project.config as QuestionnaireConfig);
+    const keys = Object.keys(schema);
+    const headerLine = keys.map((k) => esc(schema[k].label)).join(",");
+    const dataLines = rows.map((r) => keys.map((k) => esc(r[k])).join(","));
+    return new Response([headerLine, ...dataLines].join("\n"), {
+      headers: {
+        "Content-Type": "text/csv; charset=utf-8",
+        "Content-Disposition": `attachment; filename="${slug}_responses.csv"`,
+        "Cache-Control": "no-store",
+      },
+    });
+  }
 
   const questionnaireHeaderLabels = customQuestions.map((q) => q.prompt || q.id);
 

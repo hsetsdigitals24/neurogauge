@@ -81,8 +81,11 @@ export function BackendAnalysisForm({ dialogKey, config, source, dataRows, schem
     });
   }
 
+  const [lastPayload, setLastPayload] = useState<{ variables: Record<string, unknown>; options: Record<string, unknown> } | null>(null);
+
   async function handleRun() {
     const payload = config.toPayload(values);
+    setLastPayload(payload);
     await run(config.endpoint, {
       ...(source.kind === "project"
         ? { projectId: source.projectId }
@@ -134,7 +137,16 @@ export function BackendAnalysisForm({ dialogKey, config, source, dataRows, schem
         </div>
       )}
 
-      {result && <BackendResultPanel result={result} />}
+      {result && (
+        <BackendResultPanel
+          result={result}
+          analysis={{
+            label: dialogKey,
+            variables: lastPayload?.variables,
+            options: lastPayload?.options,
+          }}
+        />
+      )}
     </div>
   );
 }

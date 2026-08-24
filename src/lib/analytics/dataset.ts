@@ -5,6 +5,7 @@
  */
 
 import { prisma } from "@/lib/prisma";
+import { isQuestionnaireConfig, type QuestionnaireConfig } from "@/lib/types";
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 type AnySession = any;
@@ -162,6 +163,49 @@ export function buildLongDataset(
 }
 
 /**
+ * Wide-format dataset for a questionnaire project: one row per respondent,
+ * one column per question (keyed by the question's analysis-safe `key`).
+ * Likert/numeric questions are coerced to numbers; everything else stays
+ * categorical. Answers are read by question `id` from `customAnswers`.
+ */
+export function buildQuestionnaireDataset(
+  sessions: AnySession[],
+  config: QuestionnaireConfig,
+): { rows: Record<string, unknown>[]; schema: Record<string, ColumnSchema> } {
+  const questions = config.questions ?? [];
+
+  const schema: Record<string, ColumnSchema> = {
+    respondent_id: { type: "categorical", label: "Respondent ID" },
+    email: { type: "categorical", label: "Email" },
+  };
+  for (const q of questions) {
+    const numeric = q.type === "likert" || q.type === "numeric";
+    schema[q.key] = { type: numeric ? "numeric" : "categorical", label: q.prompt || q.key };
+  }
+
+  const rows = sessions.map((s) => {
+    const answers = (s.customAnswers ?? {}) as Record<string, string>;
+    const row: Record<string, unknown> = {
+      respondent_id: s.participantId ?? s.id,
+      email: s.takerEmail ?? null,
+    };
+    for (const q of questions) {
+      const raw = answers[q.id];
+      if (raw == null || raw === "") { row[q.key] = null; continue; }
+      if (q.type === "likert" || q.type === "numeric") {
+        const n = Number(raw);
+        row[q.key] = Number.isFinite(n) ? n : null;
+      } else {
+        row[q.key] = raw;
+      }
+    }
+    return row;
+  });
+
+  return { rows, schema };
+}
+
+/**
  * Loads a project's long-format analytics dataset directly from the database.
  * Server-side only. Shared by the dataset GET route and the analytics proxy so
  * the browser never has to upload the (potentially huge) row set.
@@ -182,6 +226,16 @@ export async function loadProjectDataset(
     select: { config: true },
   });
   if (!project) return null;
+
+  // Questionnaire projects: one row per respondent, one column per question.
+  if (isQuestionnaireConfig(project.config)) {
+    const sessionsRaw = await db.testSession.findMany({
+      where: { projectId },
+      orderBy: { createdAt: "desc" },
+    });
+    const sessions = dedupeSessions(sessionsRaw as AnySession[]).reverse();
+    return buildQuestionnaireDataset(sessions, project.config as QuestionnaireConfig);
+  }
 
   const sessionsRaw = await db.testSession.findMany({
     where: { projectId },

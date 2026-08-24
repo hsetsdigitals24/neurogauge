@@ -24,6 +24,7 @@ import { BottomOutputPanel } from "./BottomOutputPanel";
 import { ImportCsvDialog } from "./ImportCsvDialog";
 import { DatasetVariableView } from "./DatasetVariableView";
 import { ComputedColumnDialog } from "./ComputedColumnDialog";
+import { AiStatistician } from "./AiStatistician";
 
 interface WorkbenchShellProps {
   source: AnalysisSource;
@@ -57,6 +58,7 @@ export function WorkbenchShell({
   const [workbenchState, workbenchDispatch] = useReducer(workbenchReducer, initial);
   const [centerTab, setCenterTab] = useState<CenterTab>("data");
   const [showImport, setShowImport] = useState(false);
+  const [showAi, setShowAi] = useState(false);
   const [showTransform, setShowTransform] = useState(false);
   const [showComputed, setShowComputed] = useState(false);
   const [editingVarId, setEditingVarId] = useState<string | null>(null);
@@ -129,6 +131,7 @@ export function WorkbenchShell({
           <WorkbenchToolbar
             onTransform={() => setShowTransform(true)}
             onImport={() => setShowImport(true)}
+            onAiRecommend={() => setShowAi(true)}
           />
 
           {/* Filter bar */}
@@ -187,6 +190,15 @@ export function WorkbenchShell({
 
                 {/* Analysis slide panel overlays from the right */}
                 <AnalysisSlidePanel />
+
+                {/* AI statistician overlays from the right */}
+                {showAi && (
+                  <AiStatistician
+                    schema={workbenchState.schema}
+                    n={totalRows}
+                    onClose={() => setShowAi(false)}
+                  />
+                )}
               </div>
             </div>
           </div>

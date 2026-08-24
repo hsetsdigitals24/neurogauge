@@ -1,7 +1,7 @@
 "use client";
 import { useState, useRef, useEffect } from "react";
 import { useRouter } from "next/navigation";
-import { Download, Upload, ChevronDown, Loader2 } from "lucide-react";
+import { Download, Upload, ChevronDown, Loader2, Sparkles } from "lucide-react";
 import { AnalyzeMenu } from "@/components/stats/workspace/AnalyzeMenu";
 import { SessionFile } from "@/components/stats/workspace/SessionFile";
 import { GraphsMenu } from "./GraphsMenu";
@@ -15,9 +15,10 @@ import { notify } from "@/lib/toast";
 interface WorkbenchToolbarProps {
   onTransform: () => void;
   onImport: () => void;
+  onAiRecommend: () => void;
 }
 
-export function WorkbenchToolbar({ onTransform, onImport }: WorkbenchToolbarProps) {
+export function WorkbenchToolbar({ onTransform, onImport, onAiRecommend }: WorkbenchToolbarProps) {
   const ws = useWorkspace();
   const { state, filteredRows, source } = useWorkbench();
   const router = useRouter();
@@ -44,6 +45,14 @@ export function WorkbenchToolbar({ onTransform, onImport }: WorkbenchToolbarProp
     <div className="flex items-center gap-1 px-3 py-2 border-b border-[color:var(--border)] bg-white shrink-0 flex-wrap">
       {/* Analyze menu (SPSS-style) */}
       <AnalyzeMenu onPick={(key) => ws.dispatch({ type: "openDialog", key })} />
+
+      {/* AI test recommender */}
+      <button
+        className="btn btn-ghost text-xs flex items-center gap-1 text-indigo-700 hover:bg-indigo-50"
+        onClick={onAiRecommend}
+      >
+        <Sparkles className="w-3 h-3" /> AI Statistician
+      </button>
 
       {/* Transform */}
       <button className="btn btn-ghost text-xs" onClick={onTransform}>

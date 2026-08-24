@@ -30,6 +30,39 @@ export interface Demographics {
   extras?: Record<string, string>;
 }
 
+/* ── AI questionnaire projects ─────────────────────────────
+ * A questionnaire is a Project whose `config.kind === "questionnaire"`.
+ * Questions live in the project config (JSON); responses live in
+ * TestSession.customAnswers keyed by question id. See src/lib/analytics/dataset.ts
+ * for how responses become a wide-format analysis dataset. */
+export type QuestionType = "open" | "single" | "multi" | "likert" | "numeric";
+
+export interface QItem {
+  id: string;
+  key: string;            // sanitised \w+ key used as the analysis column name
+  prompt: string;
+  type: QuestionType;
+  options?: string[];     // single / multi choices
+  scalePoints?: number;   // likert (default 5)
+  scaleLabels?: { min: string; max: string };
+  required?: boolean;
+}
+
+export interface QuestionnaireConfig {
+  kind: "questionnaire";
+  studyName: string;
+  description?: string;
+  consentText?: string;
+  questions: QItem[];
+  meta?: { construct?: string; audience?: string; tone?: string };
+}
+
+/** True when a Project.config is a questionnaire (vs an N-back StudyConfig). */
+export function isQuestionnaireConfig(config: unknown): config is QuestionnaireConfig {
+  return !!config && typeof config === "object" &&
+    (config as { kind?: unknown }).kind === "questionnaire";
+}
+
 export interface ConsentRecord {
   consented: boolean; ts: number; participantId: string;
 }

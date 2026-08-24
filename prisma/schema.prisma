@@ -8,17 +8,102 @@ datasource db {
 }
 
 model User {
-  id           String   @id @default(cuid())
-  email        String   @unique
+  id           String      @id @default(cuid())
+  email        String      @unique
   name         String
   passwordHash String
-  createdAt    DateTime @default(now())
+  accountType  AccountType @default(student)
+  aiCredits    Int         @default(0) // metered credits for AI data-analysis calls (recommend-test / interpret)
+  projectCredits Int       @default(0) // one-off project unlocks purchased à la carte (pay-per-project)
+  createdAt    DateTime    @default(now())
 
-  ownedProjects      Project[]
-  collaborations     ProjectCollaborator[]
-  sentInvites        CollaboratorInvite[]  @relation("InvitedBy")
-  passwordResets     PasswordResetToken[]
-  datasets           Dataset[]
+  ownedProjects        Project[]
+  sites                Site[]
+  collaborations       ProjectCollaborator[]
+  sentInvites          CollaboratorInvite[]  @relation("InvitedBy")
+  passwordResets       PasswordResetToken[]
+  datasets             Dataset[]
+  subscription         Subscription?
+  transactions         PaymentTransaction[]
+}
+
+// The kind of account holder, chosen at signup. Drives the per-type subscription
+// plans and the dashboard they see (students get a plain project dashboard;
+// institution / research_group accounts also get Sites + a supervisor dashboard).
+enum AccountType {
+  student
+  institution
+  research_group
+}
+
+enum SubscriptionStatus {
+  inactive
+  trialing
+  active
+  past_due
+  canceled
+}
+
+// A user's current plan. planCode references the static catalog in
+// src/lib/billing/plans.ts; Paystack codes are populated once a paid plan is
+// activated via checkout/webhook.
+model Subscription {
+  id                       String             @id @default(cuid())
+  userId                   String             @unique
+  planCode                 String
+  status                   SubscriptionStatus @default(inactive)
+  paystackCustomerCode     String?
+  paystackSubscriptionCode String?
+  paystackEmailToken       String?
+  currentPeriodEnd         DateTime?
+  createdAt                DateTime           @default(now())
+  updatedAt                DateTime           @updatedAt
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+}
+
+// Ledger of Paystack transactions; `reference` is the idempotency key shared
+// between the checkout-verify path and the webhook.
+model PaymentTransaction {
+  id            String   @id @default(cuid())
+  userId        String
+  reference     String   @unique
+  planCode      String?
+  purpose       String   @default("subscription") // subscription | project | ai_credits
+  quantity      Int      @default(1) // project slots or AI credits granted on fulfilment
+  amount        Int // kobo
+  currency      String   @default("NGN")
+  status        String // success | failed | pending
+  paystackEvent String?
+  createdAt     DateTime @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+}
+
+// A study centre / collection site for multicenter studies. Sites belong to a
+// user (institution / research group account owner); sessions are tagged with the
+// site they were collected at so the supervisor dashboard can break results down
+// by centre. Online collection tags via a per-site `?site=<code>` link; offline
+// imports pick a site in the upload dialog.
+model Site {
+  id          String   @id @default(cuid())
+  userId      String
+  name        String
+  code        String   // short slug used in per-site collection links; unique per user
+  location    String?
+  principalInvestigator String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  user     User          @relation(fields: [userId], references: [id], onDelete: Cascade)
+  sessions TestSession[]
+
+  @@unique([userId, code])
+  @@index([userId])
 }
 
 model PasswordResetToken {
@@ -49,6 +134,8 @@ model Project {
   sessions      TestSession[]
   analysisResults AnalysisResult[]
   datasets      Dataset[]
+
+  @@index([ownerId])
 }
 
 model Dataset {
@@ -118,6 +205,7 @@ model CollaboratorInvite {
 model TestSession {
   id            String    @id @default(cuid())
   projectId     String
+  siteId        String?
   participantId String
   takerEmail    String
   takerAge      String
@@ -133,10 +221,12 @@ model TestSession {
   createdAt     DateTime  @default(now())
 
   project Project      @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  site    Site?        @relation(fields: [siteId], references: [id], onDelete: SetNull)
   blocks  TestBlock[]
 
   @@index([takerEmail])
   @@index([projectId])
+  @@index([siteId])
 }
 
 model TestBlock {

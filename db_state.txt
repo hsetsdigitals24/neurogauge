@@ -1,0 +1,40 @@
+TABLES: AnalysisResult, Block, CollaboratorInvite, CreditLedger, Dataset, Organization, OrganizationInvite, OrganizationMember, PasswordResetToken, PaymentTransaction, Plan, Project, ProjectCollaborator, Session, Site, Subscription, TestBlock, TestSession, TestTrial, Trial, User, WebhookEvent, Workspace, WorkspaceInvite, WorkspaceMember, _prisma_migrations
+
+User: createdAt(timestamp without time zone), email(text), id(text), name(text), passwordHash(text)
+
+Site: code(text), createdAt(timestamp without time zone), id(text), location(text), name(text), principalInvestigator(text), updatedAt(timestamp without time zone), workspaceId(text)
+
+Project: config(jsonb), createdAt(timestamp without time zone), id(text), name(text), organizationId(text), ownerId(text), shareToken(text), updatedAt(timestamp without time zone), workspaceId(text)
+
+Subscription: createdAt(timestamp without time zone), currentPeriodEnd(timestamp without time zone), id(text), orgId(text), paystackCustomerCode(text), paystackSubscriptionCode(text), planKey(text), status(USER-DEFINED), updatedAt(timestamp without time zone)
+
+PaymentTransaction: amountKobo(integer), createdAt(timestamp without time zone), id(text), metadata(jsonb), orgId(text), purpose(text), reference(text), status(text), updatedAt(timestamp without time zone)
+
+Workspace: createdAt(timestamp without time zone), id(text), name(text), ownerId(text), type(USER-DEFINED), updatedAt(timestamp without time zone)
+
+WorkspaceMember: id(text), joinedAt(timestamp without time zone), role(USER-DEFINED), userId(text), workspaceId(text)
+
+WorkspaceInvite: accepted(boolean), createdAt(timestamp without time zone), id(text), invitedById(text), inviteeEmail(text), role(USER-DEFINED), token(text), workspaceId(text)
+
+Organization: createdAt(timestamp without time zone), createdById(text), id(text), name(text), personal(boolean), slug(text), updatedAt(timestamp without time zone)
+
+OrganizationMember: createdAt(timestamp without time zone), id(text), orgId(text), role(USER-DEFINED), userId(text)
+
+OrganizationInvite: accepted(boolean), createdAt(timestamp without time zone), id(text), invitedById(text), inviteeEmail(text), orgId(text), role(USER-DEFINED), token(text)
+
+APPLIED MIGRATIONS:
+  20260510203010_init  [ok]
+  20260519201523_add_password_reset_token  [ok]
+  20260523183800_add_client_submission_id  [ok]
+  20260524010729_add_analysis_result_cache  [ok]
+  20260611184109_add_dataset_model  [ok]
+  20260611192454_dataset_analysis_cache  [ok]
+  20260611194104_dataset_rows_blob  [ok]
+  20260804120000_add_organizations_rbac  [ok]
+  20260804130000_add_billing  [ok]
+  20260804140000_add_session_condition  [ok]
+  20260804150000_add_sites  [ok]
+  20260823230000_add_workspaces  [ok]
+  20260823240000_add_workspace_members  [ok]
+  20260824000000_add_sites  [ROLLED BACK]
+  20260824000000_add_sites  [ok]

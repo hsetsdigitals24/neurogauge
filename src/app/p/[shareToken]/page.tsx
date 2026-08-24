@@ -6,10 +6,12 @@ import { Stimulus } from "@/components/Stimulus";
 import {
   BlockResult, ConsentRecord, Level, Session,
   StimulusType, StudyConfig, TLXResponse, Trial, CustomQuestion,
+  QuestionnaireConfig, isQuestionnaireConfig,
 } from "@/lib/types";
 import { blockPlan, generateSequence } from "@/lib/sequences";
 import { summarize } from "@/lib/scoring";
 import { DEFAULT_CONFIG } from "@/lib/config";
+import QuestionnaireRunner from "@/components/questionnaire/QuestionnaireRunner";
 
 /* ── Types ─────────────────────────────────────────────── */
 interface TakerInfo {
@@ -49,9 +51,14 @@ function levelInstruction(level: Level, type: StimulusType, target: string) {
 /* ── Main page component ───────────────────────────────── */
 export default function PublicTestPage() {
   const { shareToken } = useParams<{ shareToken: string }>();
+  // Per-site (multicenter) collection link: /p/<token>?site=<code>. Read client-side
+  // to avoid a Suspense boundary requirement on useSearchParams.
+  const [siteCode, setSiteCode] = useState<string | undefined>(undefined);
   const [projectId, setProjectId] = useState<string | null>(null);
   const [projectName, setProjectName] = useState("");
   const [cfg, setCfg] = useState<StudyConfig>(DEFAULT_CONFIG);
+  // Raw project config — a questionnaire project short-circuits the N-back flow.
+  const [questionnaire, setQuestionnaire] = useState<QuestionnaireConfig | null>(null);
   const [step, setStep] = useState<Step>({ kind: "loading" });
   const [participantId] = useState(() => "P-" + Math.random().toString(36).slice(2, 8).toUpperCase());
   const [takerInfo, setTakerInfo] = useState<TakerInfo>({ email: "", age: "", handedness: "right", education: "" });
@@ -68,6 +75,12 @@ export default function PublicTestPage() {
       : `csid-${Date.now()}-${Math.random().toString(36).slice(2)}`
   );
 
+  /* Capture per-site code from the URL once mounted. */
+  useEffect(() => {
+    const code = new URLSearchParams(window.location.search).get("site");
+    if (code) setSiteCode(code);
+  }, []);
+
   /* Load project config */
   useEffect(() => {
     fetch(`/api/public/${shareToken}`)
@@ -76,6 +89,10 @@ export default function PublicTestPage() {
         if (!data) { setStep({ kind: "notfound" }); return; }
         setProjectId(data.id);
         setProjectName(data.name);
+        if (isQuestionnaireConfig(data.config)) {
+          setQuestionnaire(data.config);
+          return; // QuestionnaireRunner drives its own flow
+        }
         setCfg({ ...DEFAULT_CONFIG, ...data.config });
         setStep({ kind: "consent" });
       });
@@ -139,6 +156,7 @@ export default function PublicTestPage() {
           ...session,
           consentGiven: consent?.consented ?? false,
           clientSubmissionId,
+          siteCode,
         }),
       });
       if (res.ok) {
@@ -154,6 +172,18 @@ export default function PublicTestPage() {
       submitGuardRef.current = false;
     }
   };
+
+  /* ── Questionnaire projects use a dedicated runner ─────── */
+  if (questionnaire) {
+    return (
+      <QuestionnaireRunner
+        shareToken={shareToken}
+        projectName={projectName}
+        config={questionnaire}
+        siteCode={siteCode}
+      />
+    );
+  }
 
   /* ── Not found ─────────── */
   if (step.kind === "notfound") {
