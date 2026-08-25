@@ -25,6 +25,7 @@ import { ImportCsvDialog } from "./ImportCsvDialog";
 import { DatasetVariableView } from "./DatasetVariableView";
 import { ComputedColumnDialog } from "./ComputedColumnDialog";
 import { AiStatistician } from "./AiStatistician";
+import { useAiCredits } from "@/lib/useAiCredits";
 
 interface WorkbenchShellProps {
   source: AnalysisSource;
@@ -62,6 +63,7 @@ export function WorkbenchShell({
   const [showTransform, setShowTransform] = useState(false);
   const [showComputed, setShowComputed] = useState(false);
   const [editingVarId, setEditingVarId] = useState<string | null>(null);
+  const { credits: aiCredits, refresh: refreshAiCredits } = useAiCredits();
 
   const filteredRows = useMemo(() => deriveRows(workbenchState), [workbenchState]);
   const totalRows = workbenchState.rows.length + workbenchState.importedRows.length;
@@ -132,6 +134,7 @@ export function WorkbenchShell({
             onTransform={() => setShowTransform(true)}
             onImport={() => setShowImport(true)}
             onAiRecommend={() => setShowAi(true)}
+            aiCredits={aiCredits}
           />
 
           {/* Filter bar */}
@@ -196,6 +199,8 @@ export function WorkbenchShell({
                   <AiStatistician
                     schema={workbenchState.schema}
                     n={totalRows}
+                    credits={aiCredits}
+                    onSpent={refreshAiCredits}
                     onClose={() => setShowAi(false)}
                   />
                 )}

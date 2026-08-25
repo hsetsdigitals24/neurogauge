@@ -3,8 +3,9 @@ import { use, useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { ArrowLeft, CheckCircle2, Circle, Award, HelpCircle } from "lucide-react";
 import { notify } from "@/lib/toast";
+import { sanitizeLessonHtml } from "@/lib/sanitizeHtml";
 
-interface Lesson { id: string; title: string; contentMarkdown: string; videoUrl: string | null; durationMins: number | null }
+interface Lesson { id: string; title: string; contentMarkdown: string; contentFormat?: string; videoUrl: string | null; durationMins: number | null }
 interface Module { id: string; title: string; lessons: Lesson[] }
 interface QuizQ { id: string; prompt: string; options: string[] }
 interface Course { id: string; slug: string; title: string; modules: Module[]; quiz: QuizQ[] }
@@ -161,7 +162,14 @@ export default function LearnPage({ params }: { params: Promise<{ slug: string }
                     <iframe src={activeLesson.videoUrl} className="w-full h-full rounded-lg" allowFullScreen title={activeLesson.title} />
                   </div>
                 )}
-                <div className="mt-4 text-sm whitespace-pre-wrap leading-relaxed">{activeLesson.contentMarkdown}</div>
+                {activeLesson.contentFormat === "html" ? (
+                  <div
+                    className="lesson-html mt-4 text-sm leading-relaxed"
+                    dangerouslySetInnerHTML={{ __html: sanitizeLessonHtml(activeLesson.contentMarkdown) }}
+                  />
+                ) : (
+                  <div className="mt-4 text-sm whitespace-pre-wrap leading-relaxed">{activeLesson.contentMarkdown}</div>
+                )}
                 <div className="mt-6 flex items-center justify-between">
                   {completed.has(activeLesson.id) ? (
                     <span className="text-emerald-600 inline-flex items-center gap-1 text-sm"><CheckCircle2 className="w-4 h-4" /> Completed</span>

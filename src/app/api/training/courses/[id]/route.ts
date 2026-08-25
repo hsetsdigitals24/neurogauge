@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { getSessionUser } from "@/lib/auth";
 import { requireAdmin } from "@/lib/admin";
+import { sanitizeLessonHtml } from "@/lib/sanitizeHtml";
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 const db = prisma as any;
@@ -102,12 +103,15 @@ export async function PATCH(req: Request, ctx: Ctx) {
         });
         const lessons = Array.isArray(m.lessons) ? m.lessons : [];
         for (const [li, l] of lessons.entries()) {
+          const format = l.contentFormat === "html" ? "html" : "markdown";
+          const raw = String(l.contentMarkdown ?? "");
           await tx.lesson.create({
             data: {
               moduleId: mod.id,
               title: String(l.title ?? `Lesson ${li + 1}`),
               order: li,
-              contentMarkdown: String(l.contentMarkdown ?? ""),
+              contentMarkdown: format === "html" ? sanitizeLessonHtml(raw) : raw,
+              contentFormat: format,
               videoUrl: l.videoUrl ? String(l.videoUrl) : null,
               durationMins: Number(l.durationMins) || null,
             },

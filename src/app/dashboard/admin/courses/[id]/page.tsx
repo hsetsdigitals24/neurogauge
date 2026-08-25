@@ -1,11 +1,11 @@
 "use client";
 import { use, useEffect, useState } from "react";
 import Link from "next/link";
-import { ArrowLeft, Plus, Trash2, ExternalLink } from "lucide-react";
+import { ArrowLeft, Plus, Trash2, ExternalLink, Upload } from "lucide-react";
 import { notify } from "@/lib/toast";
 import { AdminForbidden } from "@/components/admin/AdminForbidden";
 
-interface LessonDraft { title: string; contentMarkdown: string; videoUrl: string; durationMins: string }
+interface LessonDraft { title: string; contentMarkdown: string; contentFormat: "markdown" | "html"; videoUrl: string; durationMins: string }
 interface ModuleDraft { title: string; lessons: LessonDraft[] }
 interface QuizDraft { prompt: string; options: string[]; correctIndex: number }
 
@@ -36,10 +36,10 @@ export default function CourseEditorPage({ params }: { params: Promise<{ id: str
         setSlug(c.slug); setStatus(c.status); setTitle(c.title); setSummary(c.summary);
         setDescription(c.description); setLevel(c.level); setPriceNaira(String(c.priceKobo / 100));
         setEstMin(c.estimatedMinutes?.toString() ?? ""); setPass(String(c.passThreshold ?? 70));
-        setModules((c.modules ?? []).map((m: { title: string; lessons?: { title: string; contentMarkdown?: string; videoUrl?: string | null; durationMins?: number | null }[] }) => ({
+        setModules((c.modules ?? []).map((m: { title: string; lessons?: { title: string; contentMarkdown?: string; contentFormat?: string; videoUrl?: string | null; durationMins?: number | null }[] }) => ({
           title: m.title,
           lessons: (m.lessons ?? []).map((l) => ({
-            title: l.title, contentMarkdown: l.contentMarkdown ?? "", videoUrl: l.videoUrl ?? "", durationMins: l.durationMins?.toString() ?? "",
+            title: l.title, contentMarkdown: l.contentMarkdown ?? "", contentFormat: l.contentFormat === "html" ? "html" : "markdown", videoUrl: l.videoUrl ?? "", durationMins: l.durationMins?.toString() ?? "",
           })),
         })));
         setQuiz((c.quiz ?? []).map((q: { prompt: string; options?: unknown[]; correctIndex?: number }) => ({
@@ -63,7 +63,7 @@ export default function CourseEditorPage({ params }: { params: Promise<{ id: str
           status: nextStatus ?? status,
           modules: modules.map((m) => ({
             title: m.title,
-            lessons: m.lessons.map((l) => ({ title: l.title, contentMarkdown: l.contentMarkdown, videoUrl: l.videoUrl, durationMins: l.durationMins ? Number(l.durationMins) : null })),
+            lessons: m.lessons.map((l) => ({ title: l.title, contentMarkdown: l.contentMarkdown, contentFormat: l.contentFormat, videoUrl: l.videoUrl, durationMins: l.durationMins ? Number(l.durationMins) : null })),
           })),
           quiz: quiz.map((q) => ({ prompt: q.prompt, options: q.options, correctIndex: q.correctIndex })),
         }),
@@ -79,7 +79,16 @@ export default function CourseEditorPage({ params }: { params: Promise<{ id: str
   const addModule = () => setModules((m) => [...m, { title: "New module", lessons: [] }]);
   const updateModule = (mi: number, patch: Partial<ModuleDraft>) => setModules((m) => m.map((x, i) => i === mi ? { ...x, ...patch } : x));
   const removeModule = (mi: number) => setModules((m) => m.filter((_, i) => i !== mi));
-  const addLesson = (mi: number) => setModules((m) => m.map((x, i) => i === mi ? { ...x, lessons: [...x.lessons, { title: "New lesson", contentMarkdown: "", videoUrl: "", durationMins: "" }] } : x));
+  const addLesson = (mi: number) => setModules((m) => m.map((x, i) => i === mi ? { ...x, lessons: [...x.lessons, { title: "New lesson", contentMarkdown: "", contentFormat: "markdown", videoUrl: "", durationMins: "" }] } : x));
+
+  async function uploadLessonHtml(mi: number, li: number, file: File) {
+    if (!/\.html?$/i.test(file.name) && file.type !== "text/html") {
+      notify.error("Please choose an .html file"); return;
+    }
+    const text = await file.text();
+    updateLesson(mi, li, { contentMarkdown: text, contentFormat: "html" });
+    notify.success(`Loaded ${file.name}`);
+  }
   const updateLesson = (mi: number, li: number, patch: Partial<LessonDraft>) => setModules((m) => m.map((x, i) => i === mi ? { ...x, lessons: x.lessons.map((l, j) => j === li ? { ...l, ...patch } : l) } : x));
   const removeLesson = (mi: number, li: number) => setModules((m) => m.map((x, i) => i === mi ? { ...x, lessons: x.lessons.filter((_, j) => j !== li) } : x));
 
@@ -148,7 +157,24 @@ export default function CourseEditorPage({ params }: { params: Promise<{ id: str
                       <button className="btn btn-ghost btn-sm text-rose-600" onClick={() => removeLesson(mi, li)}><Trash2 className="w-4 h-4" /></button>
                     </div>
                     <input className="input" placeholder="Video URL (optional embed)" value={l.videoUrl} onChange={(e) => updateLesson(mi, li, { videoUrl: e.target.value })} />
-                    <textarea className="input min-h-[80px]" placeholder="Lesson content…" value={l.contentMarkdown} onChange={(e) => updateLesson(mi, li, { contentMarkdown: e.target.value })} />
+                    <div className="flex items-center gap-2">
+                      <select className="input w-40" value={l.contentFormat} onChange={(e) => updateLesson(mi, li, { contentFormat: e.target.value as "markdown" | "html" })} title="Lesson content format">
+                        <option value="markdown">Plain text</option>
+                        <option value="html">HTML</option>
+                      </select>
+                      {l.contentFormat === "html" && (
+                        <label className="btn btn-ghost btn-sm inline-flex items-center gap-1 cursor-pointer">
+                          <Upload className="w-4 h-4" /> Upload .html
+                          <input type="file" accept=".html,.htm,text/html" className="hidden" onChange={(e) => { const f = e.target.files?.[0]; if (f) uploadLessonHtml(mi, li, f); e.target.value = ""; }} />
+                        </label>
+                      )}
+                    </div>
+                    <textarea
+                      className="input min-h-[80px] font-mono text-xs"
+                      placeholder={l.contentFormat === "html" ? "Paste or upload HTML — <h2>, <p>, <img>, <iframe> embeds… (scripts are stripped)" : "Lesson content…"}
+                      value={l.contentMarkdown}
+                      onChange={(e) => updateLesson(mi, li, { contentMarkdown: e.target.value })}
+                    />
                   </div>
                 ))}
                 <button className="btn btn-ghost btn-sm inline-flex items-center gap-1" onClick={() => addLesson(mi)}><Plus className="w-4 h-4" /> Lesson</button>

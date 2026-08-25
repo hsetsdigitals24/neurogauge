@@ -408,6 +408,7 @@ model Lesson {
   title           String
   order           Int      @default(0)
   contentMarkdown String
+  contentFormat   String   @default("markdown") // "markdown" (plain text) | "html"
   videoUrl        String?
   durationMins    Int?
 

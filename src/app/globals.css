@@ -142,9 +142,32 @@ html, body {
 /* Avoid splitting a block across printed pages */
 .break-inside-avoid { break-inside: avoid; }
 
+/* Rendered HTML lesson content (admin-authored) — restore readable defaults
+   that Tailwind's preflight strips. */
+.lesson-html h1 { font-size: 1.6rem; font-weight: 800; margin: 1rem 0 .5rem; }
+.lesson-html h2 { font-size: 1.3rem; font-weight: 700; margin: 1rem 0 .5rem; }
+.lesson-html h3 { font-size: 1.1rem; font-weight: 700; margin: .85rem 0 .4rem; }
+.lesson-html p { margin: .6rem 0; }
+.lesson-html ul { list-style: disc; padding-left: 1.4rem; margin: .6rem 0; }
+.lesson-html ol { list-style: decimal; padding-left: 1.4rem; margin: .6rem 0; }
+.lesson-html li { margin: .25rem 0; }
+.lesson-html a { color: var(--primary); text-decoration: underline; }
+.lesson-html img { max-width: 100%; height: auto; border-radius: .5rem; margin: .5rem 0; }
+.lesson-html iframe { max-width: 100%; border-radius: .5rem; margin: .5rem 0; }
+.lesson-html pre { background: #f3f4f6; padding: .75rem; border-radius: .5rem; overflow-x: auto; font-family: ui-monospace, monospace; font-size: .8rem; }
+.lesson-html code { background: #f3f4f6; padding: .1rem .3rem; border-radius: .3rem; font-family: ui-monospace, monospace; font-size: .85em; }
+.lesson-html blockquote { border-left: 3px solid var(--border); padding-left: .85rem; color: var(--muted); margin: .6rem 0; }
+.lesson-html table { border-collapse: collapse; margin: .6rem 0; }
+.lesson-html th, .lesson-html td { border: 1px solid var(--border); padding: .4rem .6rem; }
+
 /* Print: hide chrome, use black ink on white, tighten margins */
 @media print {
   .no-print { display: none !important; }
+  /* Hide the global site chrome (nav header + site footer) — only the
+     page's own printable content should appear. These are direct children
+     of <body>; a print page's own <header>/<footer> live inside <main>. */
+  body > header,
+  body > footer { display: none !important; }
   body { background: #fff !important; }
   .print-sheet {
     max-width: none !important;

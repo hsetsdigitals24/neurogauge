@@ -1,7 +1,8 @@
 "use client";
 import { useState, useRef, useEffect } from "react";
 import { useRouter } from "next/navigation";
-import { Download, Upload, ChevronDown, Loader2, Sparkles } from "lucide-react";
+import Link from "next/link";
+import { Download, Upload, ChevronDown, Loader2, Sparkles, Plus } from "lucide-react";
 import { AnalyzeMenu } from "@/components/stats/workspace/AnalyzeMenu";
 import { SessionFile } from "@/components/stats/workspace/SessionFile";
 import { GraphsMenu } from "./GraphsMenu";
@@ -16,9 +17,11 @@ interface WorkbenchToolbarProps {
   onTransform: () => void;
   onImport: () => void;
   onAiRecommend: () => void;
+  /** Caller's AI-analysis credit balance (null while loading). */
+  aiCredits?: number | null;
 }
 
-export function WorkbenchToolbar({ onTransform, onImport, onAiRecommend }: WorkbenchToolbarProps) {
+export function WorkbenchToolbar({ onTransform, onImport, onAiRecommend, aiCredits }: WorkbenchToolbarProps) {
   const ws = useWorkspace();
   const { state, filteredRows, source } = useWorkbench();
   const router = useRouter();
@@ -53,6 +56,25 @@ export function WorkbenchToolbar({ onTransform, onImport, onAiRecommend }: Workb
       >
         <Sparkles className="w-3 h-3" /> AI Statistician
       </button>
+
+      {/* AI credit balance + buy more */}
+      {aiCredits != null && (
+        <div className="flex items-center gap-1">
+          <span
+            className={`text-[11px] font-semibold rounded-full px-2 py-0.5 ${aiCredits > 0 ? "bg-indigo-50 text-indigo-700" : "bg-amber-50 text-amber-700"}`}
+            title="AI analysis credits — one is spent per AI Statistician run"
+          >
+            {aiCredits} AI credit{aiCredits === 1 ? "" : "s"}
+          </span>
+          <Link
+            href="/dashboard/billing"
+            className="btn btn-ghost text-[11px] flex items-center gap-0.5 text-indigo-700 hover:bg-indigo-50 px-1.5 py-0.5"
+            title="Buy more AI credits"
+          >
+            <Plus className="w-3 h-3" /> Buy
+          </Link>
+        </div>
+      )}
 
       {/* Transform */}
       <button className="btn btn-ghost text-xs" onClick={onTransform}>

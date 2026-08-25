@@ -2,7 +2,7 @@
 import Link from "next/link";
 import { motion } from "framer-motion";
 import { useEffect, useState } from "react";
-import { LogOut, LogIn, ArrowLeft } from "lucide-react";
+import { LogOut, LogIn, ArrowLeft, Settings } from "lucide-react";
 import Image from "next/image";
 
 interface HeaderProps {
@@ -109,6 +109,10 @@ export function Header({ showBackButton = false, backHref = "/", title }: Header
             )}
             <Link href="/results" className="btn btn-ghost text-xs sm:text-sm hidden sm:inline-flex">
               Results
+            </Link>
+            <Link href="/dashboard/settings" className="btn btn-ghost text-xs sm:text-sm flex items-center gap-1" title="Profile & settings">
+              <Settings className="w-4 h-4" />
+              <span className="hidden lg:inline">Settings</span>
             </Link>
             <button
               onClick={logout}

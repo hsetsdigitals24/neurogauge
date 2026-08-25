@@ -1,6 +1,7 @@
 "use client";
 import { useState } from "react";
-import { Sparkles, Loader2, X, ArrowRight } from "lucide-react";
+import Link from "next/link";
+import { Sparkles, Loader2, X, ArrowRight, Plus } from "lucide-react";
 import { useWorkspace } from "@/components/stats/workspace/WorkspaceProvider";
 import type { ColumnSchema } from "@/lib/analytics/dataset";
 import type { TestRecommendation } from "@/lib/ai/schemas";
@@ -9,6 +10,10 @@ import type { DialogKey } from "@/lib/stats/workspace";
 interface Props {
   schema: Record<string, ColumnSchema>;
   n: number;
+  /** Caller's AI-credit balance (null while loading). */
+  credits?: number | null;
+  /** Called after a run consumes a credit so the balance can refresh. */
+  onSpent?: () => void;
   onClose: () => void;
 }
 
@@ -21,13 +26,15 @@ const CONFIDENCE_STYLE: Record<string, string> = {
 /** Right-hand slide-over: describe a research question, get ranked test
  *  recommendations mapped onto the workbench's analyses. Picking one opens the
  *  matching analysis dialog (pre-filled by the researcher using the shown map). */
-export function AiStatistician({ schema, n, onClose }: Props) {
+export function AiStatistician({ schema, n, credits, onSpent, onClose }: Props) {
   const ws = useWorkspace();
   const [question, setQuestion] = useState("");
   const [notes, setNotes] = useState("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [recs, setRecs] = useState<TestRecommendation[] | null>(null);
+
+  const noCredits = credits === 0;
 
   async function recommend() {
     if (!question.trim()) return;
@@ -40,12 +47,17 @@ export function AiStatistician({ schema, n, onClose }: Props) {
         body: JSON.stringify({ schema, n, question, notes }),
       });
       const json = await res.json();
-      if (!res.ok) throw new Error(json.error || `Failed (${res.status})`);
+      if (!res.ok) {
+        if (res.status === 402) throw new Error("You're out of AI credits — buy more to continue.");
+        throw new Error(json.error || `Failed (${res.status})`);
+      }
       setRecs(json.recommendations as TestRecommendation[]);
     } catch (e) {
       setError(e instanceof Error ? e.message : "Recommendation failed");
     } finally {
       setLoading(false);
+      // A run reserves a credit (refunded on model failure) — refresh either way.
+      onSpent?.();
     }
   }
 
@@ -55,10 +67,29 @@ export function AiStatistician({ schema, n, onClose }: Props) {
       <div className="flex items-center gap-2 px-4 py-3 border-b border-[color:var(--border)] shrink-0">
         <Sparkles className="w-4 h-4 text-indigo-600" />
         <h3 className="text-sm font-semibold">AI Statistician</h3>
+        {credits != null && (
+          <span
+            className={`text-[10px] font-semibold rounded-full px-2 py-0.5 ${credits > 0 ? "bg-indigo-50 text-indigo-700" : "bg-amber-50 text-amber-700"}`}
+            title="AI analysis credits — one is spent per run"
+          >
+            {credits} credit{credits === 1 ? "" : "s"}
+          </span>
+        )}
         <button onClick={onClose} className="ml-auto btn btn-ghost p-1">
           <X className="w-4 h-4" />
         </button>
       </div>
+
+      {/* Out-of-credits banner */}
+      {noCredits && (
+        <div className="mx-4 mt-3 rounded-lg border border-amber-200 bg-amber-50 p-3 text-xs text-amber-800">
+          <p className="font-semibold">You&apos;re out of AI credits.</p>
+          <p className="mt-0.5">Each recommendation uses one credit. Buy more to keep analysing.</p>
+          <Link href="/dashboard/billing" className="btn btn-primary text-[11px] mt-2 inline-flex items-center gap-1">
+            <Plus className="w-3 h-3" /> Buy AI credits
+          </Link>
+        </div>
+      )}
 
       <div className="flex-1 overflow-y-auto p-4 space-y-4">
         {/* Prompt */}
@@ -84,7 +115,7 @@ export function AiStatistician({ schema, n, onClose }: Props) {
           </label>
           <button
             onClick={recommend}
-            disabled={loading || !question.trim()}
+            disabled={loading || !question.trim() || noCredits}
             className="btn btn-primary text-xs flex items-center gap-1.5 disabled:opacity-50"
           >
             {loading ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Sparkles className="w-3.5 h-3.5" />}

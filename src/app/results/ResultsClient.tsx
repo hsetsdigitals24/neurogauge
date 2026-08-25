@@ -2,8 +2,9 @@
 import { useState, useEffect, Suspense } from "react";
 import { useSearchParams, useRouter } from "next/navigation";
 import { motion, AnimatePresence } from "framer-motion";
-import { Search, ChevronDown, ChevronUp, FlaskConical, Mail } from "lucide-react";
+import { Search, ChevronDown, ChevronUp, FlaskConical, Mail, ListChecks } from "lucide-react";
 import { summarize } from "@/lib/scoring";
+import { isQuestionnaireConfig, type QItem } from "@/lib/types";
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 type AnySession = any;
@@ -117,6 +118,9 @@ function ResultsContent() {
 function SessionCard({ session, index, expanded, onToggle }: {
   session: AnySession; index: number; expanded: boolean; onToggle: () => void;
 }) {
+  const config = session.project?.config;
+  const isQuestionnaire = isQuestionnaireConfig(config);
+  const questions: QItem[] = isQuestionnaire ? config.questions ?? [] : [];
   const blocks: AnySession[] = session.blocks ?? [];
   const totalTrials = blocks.reduce((s: number, b: AnySession) => s + (b.trials?.length ?? 0), 0);
   const date = new Date(session.createdAt);
@@ -138,12 +142,20 @@ function SessionCard({ session, index, expanded, onToggle }: {
             <h3 className="font-bold">
               {session.project?.name ?? "Study"}
             </h3>
-            <span className="text-xs px-2 py-0.5 rounded-full bg-indigo-50 text-indigo-700 border border-indigo-100">
-              {blocks.length} block{blocks.length !== 1 ? "s" : ""}
-            </span>
-            <span className="text-xs px-2 py-0.5 rounded-full bg-gray-100 text-gray-600 border border-gray-200">
-              {totalTrials} trials
-            </span>
+            {isQuestionnaire ? (
+              <span className="text-xs px-2 py-0.5 rounded-full bg-violet-50 text-violet-700 border border-violet-100 inline-flex items-center gap-1">
+                <ListChecks className="w-3 h-3" /> Questionnaire
+              </span>
+            ) : (
+              <>
+                <span className="text-xs px-2 py-0.5 rounded-full bg-indigo-50 text-indigo-700 border border-indigo-100">
+                  {blocks.length} block{blocks.length !== 1 ? "s" : ""}
+                </span>
+                <span className="text-xs px-2 py-0.5 rounded-full bg-gray-100 text-gray-600 border border-gray-200">
+                  {totalTrials} trials
+                </span>
+              </>
+            )}
           </div>
           <div className="flex flex-wrap gap-4 mt-1 text-xs text-[color:var(--muted)]">
             <span>{date.toLocaleDateString(undefined, { weekday: "short", year: "numeric", month: "short", day: "numeric" })}</span>
@@ -163,6 +175,11 @@ function SessionCard({ session, index, expanded, onToggle }: {
             exit={{ height: 0 }}
             className="overflow-hidden border-t border-[color:var(--border)]"
           >
+            {isQuestionnaire ? (
+              <div className="p-5">
+                <QuestionnaireResponses questions={questions} answers={session.customAnswers ?? {}} />
+              </div>
+            ) : (
             <div className="p-5 space-y-6">
               {/* Participant info */}
               <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
@@ -242,11 +259,82 @@ function SessionCard({ session, index, expanded, onToggle }: {
                 answers={session.customAnswers ?? {}}
               />
             </div>
+            )}
           </motion.div>
         )}
       </AnimatePresence>
     </motion.div>
   );
+}
+
+// Questionnaire projects have no blocks/trials — responses live in
+// customAnswers keyed by question id. Render each question with its answer.
+function QuestionnaireResponses({
+  questions, answers,
+}: {
+  questions: QItem[];
+  answers: Record<string, string>;
+}) {
+  if (questions.length === 0) {
+    return <p className="text-sm text-[color:var(--muted)]">This questionnaire has no questions.</p>;
+  }
+  const answeredCount = questions.filter((q) => {
+    const v = answers[q.id];
+    return v != null && String(v).trim() !== "";
+  }).length;
+  return (
+    <div>
+      <div className="flex items-center justify-between gap-3 mb-3">
+        <h4 className="font-bold">Your responses</h4>
+        <span className="text-xs text-[color:var(--muted)]">{answeredCount} of {questions.length} answered</span>
+      </div>
+      <div className="space-y-3">
+        {questions.map((q, i) => {
+          const raw = answers[q.id];
+          const answered = raw != null && String(raw).trim() !== "";
+          return (
+            <div key={q.id} className="p-3 bg-gray-50 rounded-xl border border-[color:var(--border)]">
+              <div className="text-xs text-[color:var(--muted)] mb-1 flex items-start gap-2">
+                <span className="font-mono text-[10px] mt-0.5">{i + 1}.</span>
+                <span className="flex-1">{q.prompt}</span>
+                <span className="text-[10px] uppercase tracking-wide text-[color:var(--muted)]/70 shrink-0">
+                  {QTYPE_LABELS[q.type] ?? q.type}
+                </span>
+              </div>
+              <div className="text-sm font-semibold whitespace-pre-wrap break-words pl-5">
+                {answered ? formatQuestionnaireAnswer(q, raw) : <span className="text-[color:var(--muted)] font-normal">— not answered</span>}
+              </div>
+            </div>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
+const QTYPE_LABELS: Record<string, string> = {
+  open: "Open text",
+  single: "Single choice",
+  multi: "Multiple choice",
+  likert: "Likert",
+  numeric: "Numeric",
+};
+
+// Answers are stored as strings (multi answers joined with "; "). For likert
+// scales, decorate the numeric value with its endpoint label when available.
+function formatQuestionnaireAnswer(q: QItem, raw: string): string {
+  if (q.type === "multi") return raw.split(";").map((s) => s.trim()).filter(Boolean).join(", ");
+  if (q.type === "likert") {
+    const n = parseInt(raw, 10);
+    const max = q.scalePoints ?? 5;
+    if (!Number.isNaN(n)) {
+      const ends = q.scaleLabels;
+      if (ends && n === 1 && ends.min) return `${n} — ${ends.min}`;
+      if (ends && n === max && ends.max) return `${n} — ${ends.max}`;
+      return `${n} / ${max}`;
+    }
+  }
+  return String(raw);
 }
 
 function CustomAnswers({
