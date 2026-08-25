@@ -62,8 +62,15 @@ export default function AiQuestionnaireForm() {
         return;
       }
       if (!res.ok) { notify.error(data.error ?? "Generation failed"); return; }
-      setQuestions(data.questions as QItem[]);
-      notify.success(`Generated ${data.questions.length} questions — review and edit below`);
+      const fresh = data.questions as QItem[];
+      // Append to (rather than replace) any questions already drafted, so
+      // re-running generation grows the questionnaire instead of wiping it.
+      setQuestions((prev) => [...prev, ...fresh]);
+      notify.success(
+        questions.length > 0
+          ? `Added ${fresh.length} questions — review and edit below`
+          : `Generated ${fresh.length} questions — review and edit below`
+      );
     } catch {
       notify.error("Network error");
     } finally {
@@ -231,7 +238,7 @@ export default function AiQuestionnaireForm() {
             >
               {generating
                 ? <><Loader2 className="w-4 h-4 animate-spin" /> Generating…</>
-                : <><Sparkles className="w-4 h-4" /> Generate questionnaire</>}
+                : <><Sparkles className="w-4 h-4" /> {questions.length > 0 ? "Generate more" : "Generate questionnaire"}</>}
             </button>
             <button type="button" className="btn btn-ghost w-full sm:w-auto" onClick={addManually}>
               Build manually
