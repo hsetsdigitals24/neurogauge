@@ -1,6 +1,7 @@
 import { prisma } from "@/lib/prisma";
 import { getPlan } from "./plans";
 import { activateSubscription } from "./subscription";
+import { splitFee } from "./marketplace";
 
 // Single idempotent fulfilment path shared by the checkout-verify route and the
 // Paystack webhook. Both fire for the same successful payment, so crediting must
@@ -54,6 +55,43 @@ export async function fulfillTransaction(input: FulfillInput): Promise<FulfillRe
         data: { aiCredits: { increment: quantity } },
       });
       break;
+
+    case "consultation": {
+      // Paid consulting booking: mark it paid and record the fee split so the
+      // consultant's earnings ledger is accurate. refId = booking id.
+      if (txn.refId) {
+        const split = splitFee(txn.amount);
+        await db.consultationBooking.updateMany({
+          where: { id: txn.refId, status: { not: "cancelled" } },
+          data: {
+            status: "paid",
+            amountKobo: txn.amount,
+            platformFeeKobo: split.platformFeeKobo,
+            consultantEarningsKobo: split.consultantEarningsKobo,
+            paymentReference: txn.reference,
+          },
+        });
+      }
+      break;
+    }
+
+    case "course": {
+      // Paid course: enroll the buyer. refId = course id. Unique (userId,
+      // courseId) makes the enrollment idempotent under the atomic claim.
+      if (txn.refId) {
+        await db.enrollment.upsert({
+          where: { userId_courseId: { userId: txn.userId, courseId: txn.refId } },
+          create: {
+            userId: txn.userId,
+            courseId: txn.refId,
+            status: "active",
+            paymentReference: txn.reference,
+          },
+          update: { paymentReference: txn.reference },
+        });
+      }
+      break;
+    }
 
     case "subscription":
     default: {

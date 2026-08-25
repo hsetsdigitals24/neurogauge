@@ -13,6 +13,7 @@ model User {
   name         String
   passwordHash String
   accountType  AccountType @default(student)
+  isAdmin      Boolean     @default(false) // platform admin (marketplace moderation + course authoring)
   aiCredits    Int         @default(0) // metered credits for AI data-analysis calls (recommend-test / interpret)
   projectCredits Int       @default(0) // one-off project unlocks purchased à la carte (pay-per-project)
   createdAt    DateTime    @default(now())
@@ -25,6 +26,12 @@ model User {
   datasets             Dataset[]
   subscription         Subscription?
   transactions         PaymentTransaction[]
+  consultantProfile    ConsultantProfile?
+  clientBookings       ConsultationBooking[] @relation("ClientBookings")
+  sentMessages         ConsultationMessage[]
+  enrollments          Enrollment[]
+  certificates         Certificate[]
+  authoredCourses      Course[]              @relation("CourseAuthor")
 }
 
 // The kind of account holder, chosen at signup. Drives the per-type subscription
@@ -71,7 +78,8 @@ model PaymentTransaction {
   userId        String
   reference     String   @unique
   planCode      String?
-  purpose       String   @default("subscription") // subscription | project | ai_credits
+  purpose       String   @default("subscription") // subscription | project | ai_credits | consultation | course
+  refId         String?  // booking id (consultation) or course id (course) this payment fulfils
   quantity      Int      @default(1) // project slots or AI credits granted on fulfilment
   amount        Int // kobo
   currency      String   @default("NGN")
@@ -257,6 +265,230 @@ model TestTrial {
   onsetTs       Float
 
   block TestBlock @relation(fields: [blockId], references: [id], onDelete: Cascade)
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Statistical consulting marketplace (two-sided). Users apply to become
+// consultants; clients book paid sessions; each booking gets its own message
+// thread + review; earnings are tracked as a payout ledger (disbursed
+// off-platform for now).
+// ─────────────────────────────────────────────────────────────────────────────
+model ConsultantProfile {
+  id                   String   @id @default(cuid())
+  userId               String   @unique
+  headline             String
+  bio                  String
+  expertise            String[] // free-form tags, e.g. ["ANOVA", "SEM", "R"]
+  hourlyRateKobo       Int
+  currency             String   @default("NGN")
+  yearsExperience      Int?
+  status               String   @default("pending") // pending | approved | rejected | suspended
+  payoutBankCode       String?
+  payoutAccountNumber  String?
+  payoutAccountName    String?
+  createdAt            DateTime @default(now())
+  updatedAt            DateTime @updatedAt
+
+  user     User                  @relation(fields: [userId], references: [id], onDelete: Cascade)
+  bookings ConsultationBooking[]
+  payouts  ConsultantPayout[]
+
+  @@index([status])
+}
+
+model ConsultationBooking {
+  id                    String    @id @default(cuid())
+  clientId              String
+  consultantId          String    // → ConsultantProfile.id
+  status                String    @default("requested") // requested | confirmed | paid | completed | cancelled
+  scheduledAt           DateTime?
+  durationMins          Int       @default(60)
+  topic                 String
+  message               String?
+  datasetId             String?
+  amountKobo            Int?
+  platformFeeKobo       Int?
+  consultantEarningsKobo Int?
+  paymentReference      String?
+  meetingUrl            String?
+  createdAt             DateTime  @default(now())
+  updatedAt             DateTime  @updatedAt
+
+  client     User                   @relation("ClientBookings", fields: [clientId], references: [id], onDelete: Cascade)
+  consultant ConsultantProfile      @relation(fields: [consultantId], references: [id], onDelete: Cascade)
+  messages   ConsultationMessage[]
+  review     ConsultationReview?
+
+  @@index([clientId])
+  @@index([consultantId])
+}
+
+model ConsultationMessage {
+  id        String   @id @default(cuid())
+  bookingId String
+  senderId  String
+  body      String
+  createdAt DateTime @default(now())
+
+  booking ConsultationBooking @relation(fields: [bookingId], references: [id], onDelete: Cascade)
+  sender  User                @relation(fields: [senderId], references: [id], onDelete: Cascade)
+
+  @@index([bookingId])
+}
+
+model ConsultationReview {
+  id        String   @id @default(cuid())
+  bookingId String   @unique
+  rating    Int      // 1–5
+  comment   String?
+  createdAt DateTime @default(now())
+
+  booking ConsultationBooking @relation(fields: [bookingId], references: [id], onDelete: Cascade)
+}
+
+model ConsultantPayout {
+  id           String   @id @default(cuid())
+  consultantId String
+  amountKobo   Int
+  status       String   @default("pending") // pending | paid
+  note         String?
+  createdAt    DateTime @default(now())
+
+  consultant ConsultantProfile @relation(fields: [consultantId], references: [id], onDelete: Cascade)
+
+  @@index([consultantId])
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Research training & certification (LMS). Admin-authored courses (modules →
+// lessons) with an end-of-course quiz; enrollment (free or paid), lesson
+// progress, and an auto-issued verifiable certificate.
+// ─────────────────────────────────────────────────────────────────────────────
+model Course {
+  id               String   @id @default(cuid())
+  slug             String   @unique
+  title            String
+  summary          String
+  description      String
+  coverImageUrl    String?
+  level            String   @default("beginner")
+  priceKobo        Int      @default(0) // 0 = free
+  currency         String   @default("NGN")
+  estimatedMinutes Int?
+  status           String   @default("draft") // draft | published
+  passThreshold    Int      @default(70) // quiz % needed to pass
+  authorId         String?
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+
+  author      User?          @relation("CourseAuthor", fields: [authorId], references: [id], onDelete: SetNull)
+  modules     CourseModule[]
+  quiz        QuizQuestion[]
+  enrollments Enrollment[]
+  certificates Certificate[]
+
+  @@index([status])
+}
+
+model CourseModule {
+  id       String   @id @default(cuid())
+  courseId String
+  title    String
+  order    Int      @default(0)
+
+  course  Course   @relation(fields: [courseId], references: [id], onDelete: Cascade)
+  lessons Lesson[]
+
+  @@index([courseId])
+}
+
+model Lesson {
+  id              String   @id @default(cuid())
+  moduleId        String
+  title           String
+  order           Int      @default(0)
+  contentMarkdown String
+  videoUrl        String?
+  durationMins    Int?
+
+  module   CourseModule     @relation(fields: [moduleId], references: [id], onDelete: Cascade)
+  progress LessonProgress[]
+
+  @@index([moduleId])
+}
+
+model QuizQuestion {
+  id           String @id @default(cuid())
+  courseId     String
+  prompt       String
+  options      Json   // string[]
+  correctIndex Int
+  order        Int    @default(0)
+
+  course Course @relation(fields: [courseId], references: [id], onDelete: Cascade)
+
+  @@index([courseId])
+}
+
+model Enrollment {
+  id               String    @id @default(cuid())
+  userId           String
+  courseId         String
+  status           String    @default("active") // active | completed
+  paymentReference String?
+  enrolledAt       DateTime  @default(now())
+  completedAt      DateTime?
+
+  user        User             @relation(fields: [userId], references: [id], onDelete: Cascade)
+  course      Course           @relation(fields: [courseId], references: [id], onDelete: Cascade)
+  progress    LessonProgress[]
+  attempts    QuizAttempt[]
+  certificate Certificate?
+
+  @@unique([userId, courseId])
+  @@index([userId])
+  @@index([courseId])
+}
+
+model LessonProgress {
+  id           String   @id @default(cuid())
+  enrollmentId String
+  lessonId     String
+  completedAt  DateTime @default(now())
+
+  enrollment Enrollment @relation(fields: [enrollmentId], references: [id], onDelete: Cascade)
+  lesson     Lesson     @relation(fields: [lessonId], references: [id], onDelete: Cascade)
+
+  @@unique([enrollmentId, lessonId])
+  @@index([enrollmentId])
+}
+
+model QuizAttempt {
+  id           String   @id @default(cuid())
+  enrollmentId String
+  score        Int      // percentage 0–100
+  passed       Boolean
+  answers      Json     // number[] chosen option indices
+  createdAt    DateTime @default(now())
+
+  enrollment Enrollment @relation(fields: [enrollmentId], references: [id], onDelete: Cascade)
+
+  @@index([enrollmentId])
+}
+
+model Certificate {
+  id           String   @id @default(cuid())
+  enrollmentId String   @unique
+  userId       String
+  courseId     String
+  serial       String   @unique // public verify code, e.g. NG-XXXX-XXXX
+  issuedAt     DateTime @default(now())
+
+  enrollment Enrollment @relation(fields: [enrollmentId], references: [id], onDelete: Cascade)
+  user       User       @relation(fields: [userId], references: [id], onDelete: Cascade)
+  course     Course     @relation(fields: [courseId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
 }
 
 // Legacy model kept for backwards compatibility

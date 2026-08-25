@@ -77,6 +77,44 @@ If you did not request this, you can safely ignore this email.
   return { html, text };
 }
 
+export function bookingNotificationEmail(opts: { heading: string; body: string; url: string; cta: string }) {
+  const text = `${opts.heading}
+
+${opts.body}
+
+${opts.cta}: ${opts.url}
+
+— Neurogauge`;
+
+  const html = `<!doctype html>
+<html>
+  <body style="font-family: -apple-system, Segoe UI, Roboto, sans-serif; background:#f6f7fb; padding:24px; color:#0f172a;">
+    <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="max-width:520px;margin:0 auto;background:#fff;border-radius:12px;padding:32px;border:1px solid #e5e7eb;">
+      <tr><td>
+        <h2 style="margin:0 0 12px;font-size:20px;">${opts.heading}</h2>
+        <p style="margin:0 0 24px;">${opts.body}</p>
+        <p style="margin:0 0 24px;">
+          <a href="${opts.url}" style="display:inline-block;background:#4f46e5;color:#fff;text-decoration:none;padding:12px 20px;border-radius:8px;font-weight:600;">${opts.cta}</a>
+        </p>
+        <p style="margin:0;font-size:13px;color:#64748b;">Manage this in your Neurogauge dashboard.</p>
+      </td></tr>
+    </table>
+  </body>
+</html>`;
+
+  return { html, text };
+}
+
+/** Best-effort send — swallows errors (e.g. SMTP not configured) so a
+ *  notification never blocks the primary request. */
+export async function sendMailSafe(opts: { to: string; subject: string; html: string; text?: string }) {
+  try {
+    await sendMail(opts);
+  } catch {
+    // notifications are non-critical
+  }
+}
+
 export function collaboratorInviteEmail(inviteUrl: string, projectName: string, inviterName: string) {
   const safeInviter = inviterName || "A Neurogauge user";
   const safeProject = projectName || "a project";

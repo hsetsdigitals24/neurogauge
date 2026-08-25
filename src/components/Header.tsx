@@ -21,7 +21,7 @@ const ACCOUNT_TYPE_LABEL: Record<AccountType, string> = {
 };
 
 export function Header({ showBackButton = false, backHref = "/", title }: HeaderProps) {
-  const [user, setUser] = useState<{ name: string; email: string; accountType?: AccountType } | null>(null);
+  const [user, setUser] = useState<{ name: string; email: string; accountType?: AccountType; isAdmin?: boolean } | null>(null);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
@@ -96,6 +96,17 @@ export function Header({ showBackButton = false, backHref = "/", title }: Header
             <Link href="/dashboard" className="btn btn-ghost text-xs sm:text-sm hidden sm:inline-flex">
               Dashboard
             </Link>
+            <Link href="/dashboard/consulting" className="btn btn-ghost text-xs sm:text-sm hidden md:inline-flex">
+              Consulting
+            </Link>
+            <Link href="/dashboard/training" className="btn btn-ghost text-xs sm:text-sm hidden md:inline-flex">
+              Training
+            </Link>
+            {user.isAdmin && (
+              <Link href="/dashboard/admin" className="btn btn-ghost text-xs sm:text-sm hidden md:inline-flex text-indigo-600">
+                Admin
+              </Link>
+            )}
             <Link href="/results" className="btn btn-ghost text-xs sm:text-sm hidden sm:inline-flex">
               Results
             </Link>

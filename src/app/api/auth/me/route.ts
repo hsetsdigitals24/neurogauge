@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { getSessionUser } from "@/lib/auth";
 import { resolveEntitlements } from "@/lib/billing/subscription";
+import { isAdminUser } from "@/lib/admin";
 
 export async function GET() {
   const session = await getSessionUser();
@@ -15,6 +16,7 @@ export async function GET() {
       email: true,
       name: true,
       accountType: true,
+      isAdmin: true,
       aiCredits: true,
       projectCredits: true,
       createdAt: true,
@@ -27,7 +29,9 @@ export async function GET() {
 
   const entitlements = resolveEntitlements(user);
   // Don't leak the raw subscription row to the client; expose entitlements.
-  const { subscription: _subscription, ...safeUser } = user;
+  // `isAdmin` reflects the env-based bootstrap too, not just the DB flag.
+  const { subscription: _subscription, ...rest } = user;
   void _subscription;
+  const safeUser = { ...rest, isAdmin: isAdminUser(user) };
   return NextResponse.json({ user: safeUser, entitlements });
 }
