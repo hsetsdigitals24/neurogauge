@@ -22,7 +22,15 @@ export async function POST(req: Request) {
     const passwordHash = await hashPassword(password);
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const user = await (prisma as any).user.create({
-      data: { name, email, passwordHash, accountType: type },
+      // Fresh student accounts get one project credit to create their first
+      // project (project creation is gated purely on project credits).
+      data: {
+        name,
+        email,
+        passwordHash,
+        accountType: type,
+        projectCredits: type === "student" ? 1 : 0,
+      },
       select: { id: true, email: true, name: true, accountType: true },
     });
 

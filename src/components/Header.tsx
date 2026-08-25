@@ -2,7 +2,7 @@
 import Link from "next/link";
 import { motion } from "framer-motion";
 import { useEffect, useState } from "react";
-import { LogOut, LogIn, ArrowLeft, Settings } from "lucide-react";
+import { LogOut, LogIn, ArrowLeft, Settings, FolderPlus, LayoutDashboard, Users, GraduationCap, Shield, BarChart3 } from "lucide-react";
 import Image from "next/image";
 
 interface HeaderProps {
@@ -21,7 +21,7 @@ const ACCOUNT_TYPE_LABEL: Record<AccountType, string> = {
 };
 
 export function Header({ showBackButton = false, backHref = "/", title }: HeaderProps) {
-  const [user, setUser] = useState<{ name: string; email: string; accountType?: AccountType; isAdmin?: boolean } | null>(null);
+  const [user, setUser] = useState<{ name: string; email: string; accountType?: AccountType; isAdmin?: boolean; projectCredits?: number } | null>(null);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
@@ -51,7 +51,7 @@ export function Header({ showBackButton = false, backHref = "/", title }: Header
         {showBackButton && (
           <Link
             href={backHref}
-            className="btn btn-ghost btn-sm p-2 flex-shrink-0"
+            className="inline-flex items-center p-2 flex-shrink-0 text-[color:var(--muted)] hover:text-[color:var(--fg)] transition-colors"
             title="Go back"
           >
             <ArrowLeft className="w-4 h-4" />
@@ -90,34 +90,74 @@ export function Header({ showBackButton = false, backHref = "/", title }: Header
         </Link>
       </div>
 
-      <nav className="flex items-center gap-2 sm:gap-3 flex-shrink-0">
+      <nav className="flex items-center gap-3 sm:gap-4 lg:gap-5 flex-shrink-0">
         {!loading && user ? (
           <>
-            <Link href="/dashboard" className="btn btn-ghost text-xs sm:text-sm hidden sm:inline-flex">
-              Dashboard
+            <Link
+              href="/dashboard"
+              title="Dashboard"
+              className="inline-flex items-center gap-1.5 text-xs sm:text-sm text-[color:var(--muted)] hover:text-[color:var(--fg)] transition-colors hidden sm:inline-flex"
+            >
+              <LayoutDashboard className="w-4 h-4" />
+              <span className="hidden lg:inline">Dashboard</span>
             </Link>
-            <Link href="/dashboard/consulting" className="btn btn-ghost text-xs sm:text-sm hidden md:inline-flex">
-              Consulting
+            <Link
+              href="/dashboard/consulting"
+              title="Consulting"
+              className="inline-flex items-center gap-1.5 text-xs sm:text-sm text-[color:var(--muted)] hover:text-[color:var(--fg)] transition-colors hidden md:inline-flex"
+            >
+              <Users className="w-4 h-4" />
+              <span className="hidden lg:inline">Consulting</span>
             </Link>
-            <Link href="/dashboard/training" className="btn btn-ghost text-xs sm:text-sm hidden md:inline-flex">
-              Training
+            <Link
+              href="/dashboard/training"
+              title="Training"
+              className="inline-flex items-center gap-1.5 text-xs sm:text-sm text-[color:var(--muted)] hover:text-[color:var(--fg)] transition-colors hidden md:inline-flex"
+            >
+              <GraduationCap className="w-4 h-4" />
+              <span className="hidden lg:inline">Training</span>
             </Link>
             {user.isAdmin && (
-              <Link href="/dashboard/admin" className="btn btn-ghost text-xs sm:text-sm hidden md:inline-flex text-indigo-600">
-                Admin
+              <Link
+                href="/dashboard/admin"
+                title="Admin"
+                className="inline-flex items-center gap-1.5 text-xs sm:text-sm text-indigo-600 hover:text-indigo-700 transition-colors hidden md:inline-flex"
+              >
+                <Shield className="w-4 h-4" />
+                <span className="hidden lg:inline">Admin</span>
               </Link>
             )}
-            <Link href="/results" className="btn btn-ghost text-xs sm:text-sm hidden sm:inline-flex">
-              Results
+            <Link
+              href="/results"
+              title="Results"
+              className="inline-flex items-center gap-1.5 text-xs sm:text-sm text-[color:var(--muted)] hover:text-[color:var(--fg)] transition-colors hidden sm:inline-flex"
+            >
+              <BarChart3 className="w-4 h-4" />
+              <span className="hidden lg:inline">Results</span>
             </Link>
-            <Link href="/dashboard/settings" className="btn btn-ghost text-xs sm:text-sm flex items-center gap-1" title="Profile & settings">
+            <Link
+              href="/dashboard/billing"
+              title="Project credits — one credit creates one project"
+              className="inline-flex items-center gap-1 rounded-full bg-emerald-50 text-emerald-700 px-2 py-1 text-xs font-semibold hover:bg-emerald-100 transition-colors"
+            >
+              <FolderPlus className="w-3.5 h-3.5" />
+              <span>{user.projectCredits ?? 0}</span>
+              <span className="hidden lg:inline font-normal text-emerald-600">
+                {(user.projectCredits ?? 0) === 1 ? "credit" : "credits"}
+              </span>
+            </Link>
+            <Link
+              href="/dashboard/settings"
+              title="Profile & settings"
+              className="inline-flex items-center gap-1.5 text-xs sm:text-sm text-[color:var(--muted)] hover:text-[color:var(--fg)] transition-colors"
+            >
               <Settings className="w-4 h-4" />
               <span className="hidden lg:inline">Settings</span>
             </Link>
             <button
               onClick={logout}
-              className="btn btn-ghost text-xs sm:text-sm flex items-center gap-1"
               title="Sign out"
+              className="inline-flex items-center gap-1.5 text-xs sm:text-sm text-[color:var(--muted)] hover:text-[color:var(--fg)] transition-colors"
             >
               <LogOut className="w-4 h-4" />
               <span className="hidden sm:inline">Sign out</span>
@@ -125,11 +165,18 @@ export function Header({ showBackButton = false, backHref = "/", title }: Header
           </>
         ) : !loading ? (
           <>
-            <Link href="/auth/login" className="btn btn-ghost text-xs sm:text-sm flex items-center gap-1">
+            <Link
+              href="/auth/login"
+              title="Sign in"
+              className="inline-flex items-center gap-1.5 text-xs sm:text-sm text-[color:var(--muted)] hover:text-[color:var(--fg)] transition-colors"
+            >
               <LogIn className="w-4 h-4" />
               <span className="hidden sm:inline">Sign in</span>
             </Link>
-            <Link href="/auth/signup" className="btn btn-primary text-xs sm:text-sm">
+            <Link
+              href="/auth/signup"
+              className="inline-flex items-center gap-1.5 text-xs sm:text-sm font-semibold text-indigo-600 hover:text-indigo-700 transition-colors"
+            >
               Get Started
             </Link>
           </>
