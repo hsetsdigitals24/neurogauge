@@ -3,6 +3,7 @@ import "./globals.css";
 import { Header } from "@/components/Header";
 import { Footer } from "@/components/Footer";
 import { AppToaster } from "@/components/AppToaster";
+import { ChunkGuard } from "@/components/ChunkGuard";
 
 export const metadata: Metadata = {
   metadataBase: new URL("https://www.neurogauge.africa"),
@@ -32,6 +33,7 @@ export default function RootLayout({ children }: Readonly<{ children: React.Reac
         {children}
         <Footer />
         <AppToaster />
+        <ChunkGuard />
       </body>
     </html>
   );
