@@ -3,7 +3,7 @@ import { useState, useRef, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { Download, Upload, ChevronDown, Loader2, Sparkles, Plus } from "lucide-react";
-import { AnalyzeMenu } from "@/components/stats/workspace/AnalyzeMenu";
+import { AnalyzeBar } from "@/components/stats/workspace/AnalyzeBar";
 import { SessionFile } from "@/components/stats/workspace/SessionFile";
 import { GraphsMenu } from "./GraphsMenu";
 import { useWorkspace } from "@/components/stats/workspace/WorkspaceProvider";
@@ -45,10 +45,8 @@ export function WorkbenchToolbar({ onTransform, onImport, onAiRecommend, aiCredi
   }
 
   return (
-    <div className="flex items-center gap-1 px-3 py-2 border-b border-[color:var(--border)] bg-white shrink-0 flex-wrap">
-      {/* Analyze menu (SPSS-style) */}
-      <AnalyzeMenu onPick={(key) => ws.dispatch({ type: "openDialog", key })} />
-
+    <div className="shrink-0">
+    <div className="flex items-center gap-1 px-3 py-2 border-b border-[color:var(--border)] bg-white flex-wrap">
       {/* AI test recommender */}
       <button
         className="btn btn-ghost text-xs flex items-center gap-1 text-indigo-700 hover:bg-indigo-50"
@@ -110,6 +108,13 @@ export function WorkbenchToolbar({ onTransform, onImport, onAiRecommend, aiCredi
       <div className="ml-auto">
         <SessionFile />
       </div>
+    </div>
+
+    {/* Analyze icon bar (replaces the SPSS-style dropdown) */}
+    <AnalyzeBar
+      onPick={(key) => ws.dispatch({ type: "openDialog", key })}
+      activeKey={ws.state.activeDialog}
+    />
     </div>
   );
 }

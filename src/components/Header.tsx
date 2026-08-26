@@ -2,7 +2,8 @@
 import Link from "next/link";
 import { motion } from "framer-motion";
 import { useEffect, useState } from "react";
-import { LogOut, LogIn, ArrowLeft, Settings, FolderPlus, LayoutDashboard, Users, GraduationCap, Shield, BarChart3 } from "lucide-react";
+import { usePathname } from "next/navigation";
+import { LogOut, LogIn, ArrowLeft, Settings, FolderPlus, LayoutDashboard, Users, GraduationCap, Shield, BarChart3, Menu, X } from "lucide-react";
 import Image from "next/image";
 
 interface HeaderProps {
@@ -20,20 +21,45 @@ const ACCOUNT_TYPE_LABEL: Record<AccountType, string> = {
   research_group: "Research group",
 };
 
+// Primary nav links, shared between the inline (large-screen) row and the
+// mobile dropdown menu so both stay in sync.
+const NAV_LINKS: {
+  href: string;
+  label: string;
+  icon: typeof LayoutDashboard;
+  adminOnly?: boolean;
+  accent?: boolean;
+}[] = [
+  { href: "/dashboard", label: "Dashboard", icon: LayoutDashboard },
+  { href: "/dashboard/consulting", label: "Consulting", icon: Users },
+  { href: "/dashboard/training", label: "Training", icon: GraduationCap },
+  { href: "/dashboard/admin", label: "Admin", icon: Shield, adminOnly: true, accent: true },
+  { href: "/results", label: "Results", icon: BarChart3 },
+];
+
 export function Header({ showBackButton = false, backHref = "/", title }: HeaderProps) {
   const [user, setUser] = useState<{ name: string; email: string; accountType?: AccountType; isAdmin?: boolean; projectCredits?: number } | null>(null);
   const [loading, setLoading] = useState(true);
+  const [menuOpen, setMenuOpen] = useState(false);
+  const pathname = usePathname();
 
+  // Re-fetch auth state on every route change, not just first mount. The Header
+  // lives in the persistent root layout, so after a client-side navigation (e.g.
+  // login → /dashboard) it would otherwise keep showing the stale logged-out
+  // state until a full refresh. Refetching on pathname change also keeps the
+  // name badge + credit pill in sync after actions like buying credits.
   useEffect(() => {
+    let active = true;
     fetch("/api/auth/me")
       .then(async (r) => {
         const text = await r.text();
         return text ? JSON.parse(text) : {};
       })
-      .then((d) => setUser(d.user || null))
-      .catch(() => setUser(null))
-      .finally(() => setLoading(false));
-  }, []);
+      .then((d) => { if (active) setUser(d.user || null); })
+      .catch(() => { if (active) setUser(null); })
+      .finally(() => { if (active) setLoading(false); });
+    return () => { active = false; };
+  }, [pathname]);
 
   const logout = async () => {
     await fetch("/api/auth/logout", { method: "POST" });
@@ -93,48 +119,27 @@ export function Header({ showBackButton = false, backHref = "/", title }: Header
       <nav className="flex items-center gap-3 sm:gap-4 lg:gap-5 flex-shrink-0">
         {!loading && user ? (
           <>
-            <Link
-              href="/dashboard"
-              title="Dashboard"
-              className="inline-flex items-center gap-1.5 text-xs sm:text-sm text-[color:var(--muted)] hover:text-[color:var(--fg)] transition-colors hidden sm:inline-flex"
-            >
-              <LayoutDashboard className="w-4 h-4" />
-              <span className="hidden lg:inline">Dashboard</span>
-            </Link>
-            <Link
-              href="/dashboard/consulting"
-              title="Consulting"
-              className="inline-flex items-center gap-1.5 text-xs sm:text-sm text-[color:var(--muted)] hover:text-[color:var(--fg)] transition-colors hidden md:inline-flex"
-            >
-              <Users className="w-4 h-4" />
-              <span className="hidden lg:inline">Consulting</span>
-            </Link>
-            <Link
-              href="/dashboard/training"
-              title="Training"
-              className="inline-flex items-center gap-1.5 text-xs sm:text-sm text-[color:var(--muted)] hover:text-[color:var(--fg)] transition-colors hidden md:inline-flex"
-            >
-              <GraduationCap className="w-4 h-4" />
-              <span className="hidden lg:inline">Training</span>
-            </Link>
-            {user.isAdmin && (
-              <Link
-                href="/dashboard/admin"
-                title="Admin"
-                className="inline-flex items-center gap-1.5 text-xs sm:text-sm text-indigo-600 hover:text-indigo-700 transition-colors hidden md:inline-flex"
-              >
-                <Shield className="w-4 h-4" />
-                <span className="hidden lg:inline">Admin</span>
-              </Link>
-            )}
-            <Link
-              href="/results"
-              title="Results"
-              className="inline-flex items-center gap-1.5 text-xs sm:text-sm text-[color:var(--muted)] hover:text-[color:var(--fg)] transition-colors hidden sm:inline-flex"
-            >
-              <BarChart3 className="w-4 h-4" />
-              <span className="hidden lg:inline">Results</span>
-            </Link>
+            {/* Full inline nav on large screens */}
+            {NAV_LINKS.filter((l) => !l.adminOnly || user.isAdmin).map((l) => {
+              const Icon = l.icon;
+              return (
+                <Link
+                  key={l.href}
+                  href={l.href}
+                  title={l.label}
+                  className={`hidden lg:inline-flex items-center gap-1.5 text-sm transition-colors ${
+                    l.accent
+                      ? "text-indigo-600 hover:text-indigo-700"
+                      : "text-[color:var(--muted)] hover:text-[color:var(--fg)]"
+                  }`}
+                >
+                  <Icon className="w-4 h-4" />
+                  <span>{l.label}</span>
+                </Link>
+              );
+            })}
+
+            {/* Credit pill — always visible */}
             <Link
               href="/dashboard/billing"
               title="Project credits — one credit creates one project"
@@ -146,21 +151,33 @@ export function Header({ showBackButton = false, backHref = "/", title }: Header
                 {(user.projectCredits ?? 0) === 1 ? "credit" : "credits"}
               </span>
             </Link>
+
+            {/* Settings + Sign out — inline on large screens only */}
             <Link
               href="/dashboard/settings"
               title="Profile & settings"
-              className="inline-flex items-center gap-1.5 text-xs sm:text-sm text-[color:var(--muted)] hover:text-[color:var(--fg)] transition-colors"
+              className="hidden lg:inline-flex items-center gap-1.5 text-sm text-[color:var(--muted)] hover:text-[color:var(--fg)] transition-colors"
             >
               <Settings className="w-4 h-4" />
-              <span className="hidden lg:inline">Settings</span>
+              <span>Settings</span>
             </Link>
             <button
               onClick={logout}
               title="Sign out"
-              className="inline-flex items-center gap-1.5 text-xs sm:text-sm text-[color:var(--muted)] hover:text-[color:var(--fg)] transition-colors"
+              className="hidden lg:inline-flex items-center gap-1.5 text-sm font-semibold text-rose-600 hover:text-rose-700 transition-colors"
             >
               <LogOut className="w-4 h-4" />
-              <span className="hidden sm:inline">Sign out</span>
+              <span>Sign out</span>
+            </button>
+
+            {/* Hamburger — below lg */}
+            <button
+              onClick={() => setMenuOpen((o) => !o)}
+              aria-label={menuOpen ? "Close menu" : "Open menu"}
+              aria-expanded={menuOpen}
+              className="lg:hidden inline-flex items-center justify-center p-2 -mr-2 text-[color:var(--muted)] hover:text-[color:var(--fg)] transition-colors"
+            >
+              {menuOpen ? <X className="w-5 h-5" /> : <Menu className="w-5 h-5" />}
             </button>
           </>
         ) : !loading ? (
@@ -168,14 +185,14 @@ export function Header({ showBackButton = false, backHref = "/", title }: Header
             <Link
               href="/auth/login"
               title="Sign in"
-              className="inline-flex items-center gap-1.5 text-xs sm:text-sm text-[color:var(--muted)] hover:text-[color:var(--fg)] transition-colors"
+              className="inline-flex items-center gap-1.5 text-xs sm:text-sm font-semibold text-indigo-600 hover:text-indigo-700 transition-colors"
             >
               <LogIn className="w-4 h-4" />
               <span className="hidden sm:inline">Sign in</span>
             </Link>
             <Link
               href="/auth/signup"
-              className="inline-flex items-center gap-1.5 text-xs sm:text-sm font-semibold text-indigo-600 hover:text-indigo-700 transition-colors"
+              className="inline-flex items-center gap-1.5 rounded-full bg-indigo-600 px-3.5 py-1.5 text-xs sm:text-sm font-semibold text-white shadow-sm hover:bg-indigo-700 transition-colors"
             >
               Get Started
             </Link>
@@ -184,6 +201,58 @@ export function Header({ showBackButton = false, backHref = "/", title }: Header
           <div className="w-16 h-8 bg-[color:var(--border)] rounded animate-pulse" />
         )}
       </nav>
+
+      {/* Mobile dropdown menu (below lg) */}
+      {!loading && user && menuOpen && (
+        <>
+          {/* Click-away backdrop */}
+          <button
+            aria-hidden
+            tabIndex={-1}
+            onClick={() => setMenuOpen(false)}
+            className="lg:hidden fixed inset-0 top-[var(--header-h,64px)] z-10 cursor-default"
+          />
+          <motion.div
+            initial={{ opacity: 0, y: -8 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.15 }}
+            className="lg:hidden absolute right-2 top-full mt-1 w-56 z-20 rounded-xl border border-[color:var(--border)] bg-white shadow-lg p-2 flex flex-col"
+          >
+            {NAV_LINKS.filter((l) => !l.adminOnly || user.isAdmin).map((l) => {
+              const Icon = l.icon;
+              return (
+                <Link
+                  key={l.href}
+                  href={l.href}
+                  onClick={() => setMenuOpen(false)}
+                  className={`flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm transition-colors hover:bg-[color:var(--border)]/40 ${
+                    l.accent ? "text-indigo-600" : "text-[color:var(--fg)]"
+                  }`}
+                >
+                  <Icon className="w-4 h-4 flex-shrink-0" />
+                  <span>{l.label}</span>
+                </Link>
+              );
+            })}
+            <div className="my-1 border-t border-[color:var(--border)]" />
+            <Link
+              href="/dashboard/settings"
+              onClick={() => setMenuOpen(false)}
+              className="flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm text-[color:var(--fg)] transition-colors hover:bg-[color:var(--border)]/40"
+            >
+              <Settings className="w-4 h-4 flex-shrink-0" />
+              <span>Settings</span>
+            </Link>
+            <button
+              onClick={() => { setMenuOpen(false); logout(); }}
+              className="flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-semibold text-rose-600 transition-colors hover:bg-rose-50 text-left"
+            >
+              <LogOut className="w-4 h-4 flex-shrink-0" />
+              <span>Sign out</span>
+            </button>
+          </motion.div>
+        </>
+      )}
     </motion.header>
   );
 }

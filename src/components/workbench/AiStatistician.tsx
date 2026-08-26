@@ -48,8 +48,8 @@ export function AiStatistician({ schema, n, credits, onSpent, onClose }: Props) 
       });
       const json = await res.json();
       if (!res.ok) {
-        if (res.status === 402) throw new Error("You're out of AI credits — buy more to continue.");
-        throw new Error(json.error || `Failed (${res.status})`);
+        if (res.status === 402) throw new Error(json.message || "You've used all your AI credits. Buy an AI credit pack from Billing to continue.");
+        throw new Error(json.message || json.error || `Failed (${res.status})`);
       }
       setRecs(json.recommendations as TestRecommendation[]);
     } catch (e) {

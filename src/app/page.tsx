@@ -2,9 +2,9 @@ import type { Metadata } from "next";
 import HomeClient from "./HomeClient";
 
 export const metadata: Metadata = {
-  title: { absolute: "Neurogauge Neuroscience Lab — Cognitive Assessment Platform" },
+  title: { absolute: "Neurogauge — The End-to-End Research Platform" },
   description:
-    "Measure working memory with research-grade precision. N-back testing across Letters, Shapes, and Rotated-E with NASA-TLX questionnaires, d-prime scoring, and CSV export for researchers.",
+    "One platform for the entire research lifecycle: cognitive assessment, an SPSS-style statistical analytics workbench, expert consulting and certified training — built for researchers.",
 };
 
 const jsonLd = {
@@ -14,7 +14,7 @@ const jsonLd = {
   url: "https://www.neurogauge.africa",
   applicationCategory: "Research",
   description:
-    "Research-grade N-back working memory assessment platform with NASA-TLX questionnaires, d-prime scoring, and CSV export.",
+    "End-to-end research platform: cognitive assessment, statistical analytics workbench, expert consulting and certified training.",
   publisher: {
     "@type": "Organization",
     name: "Neurogauge Neuroscience Lab",

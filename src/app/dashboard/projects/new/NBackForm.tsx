@@ -52,7 +52,7 @@ export default function NBackForm() {
         body: JSON.stringify({ name: name.trim(), config: cfg }),
       });
       const data = await res.json();
-      if (!res.ok) { notify.error(data.error ?? "Failed to create"); return; }
+      if (!res.ok) { notify.error(data.message ?? data.error ?? "Failed to create"); return; }
       notify.success("Project created");
       router.push(`/dashboard/projects/${data.id}`);
     } catch {

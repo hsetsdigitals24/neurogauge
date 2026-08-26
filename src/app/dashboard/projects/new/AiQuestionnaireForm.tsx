@@ -104,7 +104,7 @@ export default function AiQuestionnaireForm() {
         body: JSON.stringify({ name: name.trim(), config }),
       });
       const data = await res.json();
-      if (!res.ok) { notify.error(data.error ?? "Failed to create"); return; }
+      if (!res.ok) { notify.error(data.message ?? data.error ?? "Failed to create"); return; }
       notify.success("Questionnaire created");
       router.push(`/dashboard/projects/${data.id}`);
     } catch {

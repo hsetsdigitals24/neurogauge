@@ -55,7 +55,9 @@ export async function POST(req: Request) {
       {
         error: "project_limit",
         message:
-          "You're out of project credits. Buy a project pass to create another project.",
+          "You've used all your project credits, so this project can't be created yet. " +
+          "Each new project uses one credit. Buy a project pass from Billing to add another " +
+          "project — no subscription required.",
       },
       { status: 402 }
     );

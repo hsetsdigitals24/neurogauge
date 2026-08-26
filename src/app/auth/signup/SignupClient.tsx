@@ -15,6 +15,15 @@ const ACCOUNT_OPTIONS: { value: AccountType; label: string; desc: string; icon: 
   { value: "research_group", label: "Research group", desc: "Collaborate with your lab", icon: FlaskRound },
 ];
 
+// The name field adapts to the selected account type: a student registers under
+// their own name, whereas institutions and research groups register under their
+// organization's name.
+const NAME_FIELD: Record<AccountType, { label: string; placeholder: string; autoComplete: string }> = {
+  student: { label: "Full name", placeholder: "Jane Doe", autoComplete: "name" },
+  institution: { label: "Institution name", placeholder: "University of Lagos", autoComplete: "organization" },
+  research_group: { label: "Research group name", placeholder: "Cognitive Neuroscience Lab", autoComplete: "organization" },
+};
+
 function SignupForm() {
   const router = useRouter();
   const params = useSearchParams();
@@ -75,8 +84,10 @@ function SignupForm() {
         </div>
       </div>
       <div>
-        <label className="label">Full name</label>
-        <input className="input" required autoComplete="name"
+        <label className="label">{NAME_FIELD[accountType].label}</label>
+        <input className="input" required
+          autoComplete={NAME_FIELD[accountType].autoComplete}
+          placeholder={NAME_FIELD[accountType].placeholder}
           value={name} onChange={(e) => setName(e.target.value)} />
       </div>
       <div>

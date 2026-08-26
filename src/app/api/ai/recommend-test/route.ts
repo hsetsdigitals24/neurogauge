@@ -110,7 +110,7 @@ export async function POST(req: Request) {
   const reserved = await spendAiCredit(user.userId);
   if (!reserved) {
     return NextResponse.json(
-      { error: "no_ai_credits", message: "You're out of AI credits. Top up to keep using the AI Statistician." },
+      { error: "no_ai_credits", message: "You've used all your AI credits, so this analysis can't run yet. Each AI Statistician run uses one credit. Buy an AI credit pack from Billing to continue." },
       { status: 402 },
     );
   }

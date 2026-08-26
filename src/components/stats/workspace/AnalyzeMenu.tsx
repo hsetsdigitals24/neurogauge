@@ -48,6 +48,9 @@ const MENU: { group: string; items: { key: DialogKey; label: string }[] }[] = [
     { key: "modelling", label: "Statistical modelling (GLM)" },
     { key: "sem", label: "Structural equation modelling" },
   ]},
+  { group: "Plan study", items: [
+    { key: "power", label: "Sample size & power" },
+  ]},
 ];
 
 export function AnalyzeMenu({ onPick }: { onPick: (key: DialogKey) => void }) {

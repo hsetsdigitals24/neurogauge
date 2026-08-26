@@ -3,7 +3,7 @@ import { Suspense, useEffect, useState } from "react";
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import { motion } from "framer-motion";
-import { ArrowLeft, Check, Crown, Sparkles, CreditCard } from "lucide-react";
+import { ArrowLeft, Check, Crown, Sparkles, CreditCard, Receipt } from "lucide-react";
 import { notify } from "@/lib/toast";
 
 interface Plan {
@@ -132,10 +132,13 @@ function BillingInner() {
           <div className="w-12 h-12 rounded-xl bg-indigo-50 text-indigo-600 flex items-center justify-center">
             <CreditCard className="w-6 h-6" />
           </div>
-          <div>
+          <div className="flex-1">
             <span className="text-[11px] uppercase tracking-wide font-bold text-[color:var(--muted)]">Billing</span>
             <h1 className="text-2xl md:text-3xl font-extrabold">Plans &amp; subscription</h1>
           </div>
+          <Link href="/dashboard/billing/history" className="btn btn-ghost btn-sm inline-flex items-center gap-1 border border-[color:var(--border)] shrink-0">
+            <Receipt className="w-4 h-4" /> Payments &amp; receipts
+          </Link>
         </div>
 
         {verifying && (

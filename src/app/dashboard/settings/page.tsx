@@ -1,7 +1,7 @@
 "use client";
 import { useEffect, useState } from "react";
 import Link from "next/link";
-import { ArrowLeft, User as UserIcon, Lock, CreditCard, Sparkles, Loader2 } from "lucide-react";
+import { ArrowLeft, User as UserIcon, Lock, CreditCard, Sparkles, Loader2, Receipt } from "lucide-react";
 import { notify } from "@/lib/toast";
 
 interface Account {
@@ -19,6 +19,14 @@ const ACCOUNT_TYPE_LABEL: Record<string, string> = {
   student: "Student",
   institution: "Institution",
   research_group: "Research group",
+};
+
+// The display-name field is labelled per account type: personal name for
+// students, organization name for institutions and research groups.
+const NAME_FIELD_LABEL: Record<string, string> = {
+  student: "Full name",
+  institution: "Institution name",
+  research_group: "Research group name",
 };
 
 export default function SettingsPage() {
@@ -106,7 +114,7 @@ export default function SettingsPage() {
           <h2 className="font-bold">Profile</h2>
           <div className="mt-4 space-y-4">
             <div>
-              <label className="label">Full name</label>
+              <label className="label">{NAME_FIELD_LABEL[account.accountType] ?? "Full name"}</label>
               <input className="input" value={name} onChange={(e) => setName(e.target.value)} />
             </div>
             <div className="grid sm:grid-cols-2 gap-4">
@@ -177,6 +185,10 @@ export default function SettingsPage() {
             <Link href="/dashboard/billing" className="rounded-xl border border-[color:var(--border)] p-4 hover:border-indigo-300 hover:bg-indigo-50/40 transition-colors">
               <div className="flex items-center gap-2 font-semibold text-sm"><Sparkles className="w-4 h-4 text-indigo-600" /> AI credits{typeof account.aiCredits === "number" ? ` · ${account.aiCredits}` : ""}</div>
               <p className="text-xs text-[color:var(--muted)] mt-1">Buy AI analysis credits used by the AI Statistician.</p>
+            </Link>
+            <Link href="/dashboard/billing/history" className="rounded-xl border border-[color:var(--border)] p-4 hover:border-indigo-300 hover:bg-indigo-50/40 transition-colors sm:col-span-2">
+              <div className="flex items-center gap-2 font-semibold text-sm"><Receipt className="w-4 h-4 text-indigo-600" /> Payments &amp; receipts</div>
+              <p className="text-xs text-[color:var(--muted)] mt-1">View your payment history and download receipts.</p>
             </Link>
           </div>
         </section>

@@ -25,6 +25,7 @@ import { GrowthCurveCard } from "../tests/GrowthCurveCard";
 import { MediationCard } from "../tests/MediationCard";
 import { ModellingCard } from "../tests/ModellingCard";
 import { SemCard } from "../tests/SemCard";
+import { PowerAnalysisCard } from "@/components/workbench/PowerAnalysisCard";
 
 const TITLE: Record<DialogKey, string> = {
   descriptive: "Descriptives",
@@ -51,6 +52,7 @@ const TITLE: Record<DialogKey, string> = {
   irt: "Item response theory (IRT)",
   modelling: "Statistical modelling (GLM)",
   sem: "Structural equation modelling",
+  power: "Sample size & power",
 };
 
 export function DialogHost({ dialogKey }: { dialogKey: DialogKey }) {
@@ -130,6 +132,9 @@ export function DialogHost({ dialogKey }: { dialogKey: DialogKey }) {
           {!useBackend && dialogKey === "mediation" && <MediationCard {...cardProps} />}
           {!useBackend && dialogKey === "modelling" && <ModellingCard />}
           {!useBackend && dialogKey === "sem" && <SemCard />}
+
+          {/* Power analysis is dataset-free — no backend config, renders everywhere */}
+          {dialogKey === "power" && <PowerAnalysisCard />}
 
         </div>
       </div>
