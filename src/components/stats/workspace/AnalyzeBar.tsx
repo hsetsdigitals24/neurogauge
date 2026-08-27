@@ -4,7 +4,7 @@ import {
   BarChart3, Activity, GitCompare, Boxes, Grid3x3, Repeat,
   SplitSquareHorizontal, MoveVertical, Layers, Rows3, ScatterChart, Table2,
   TrendingUp, Spline, Waypoints, Scale, Gauge, LineChart, Network, Binary,
-  Ruler, FunctionSquare, Share2, Target, type LucideIcon,
+  Ruler, FunctionSquare, Share2, Target, Shuffle, type LucideIcon,
 } from "lucide-react";
 
 interface AnalyzeItem { key: DialogKey; label: string; icon: LucideIcon }
@@ -53,6 +53,7 @@ const GROUPS: { group: string; items: AnalyzeItem[] }[] = [
   ]},
   { group: "Plan study", items: [
     { key: "power", label: "Sample size & power", icon: Target },
+    { key: "randomize", label: "Randomize participants", icon: Shuffle },
   ]},
 ];
 

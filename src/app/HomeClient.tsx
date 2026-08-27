@@ -191,16 +191,17 @@ export default function Home() {
           </p>
         </div>
 
-        <div className="mt-10 grid md:grid-cols-2 gap-6">
+        <div className="mt-12 flex flex-col gap-7 md:gap-10 max-w-5xl mx-auto">
           {pillars.map((p, i) => {
             const Icon = p.icon;
+            const reversed = i % 2 === 1;
             return (
               <motion.div key={p.title} {...fadeUp} transition={{ delay: i * 0.08 }}>
                 <Link
                   href={p.href}
-                  className="group card overflow-hidden flex flex-col h-full hover:-translate-y-1 transition-transform duration-300"
+                  className={`group overflow-hidden grid md:grid-cols-2 items-stretch hover:-translate-y-1 transition-transform duration-300 ${reversed ? "md:[&>*:first-child]:order-2" : ""}`}
                 >
-                  <div className="relative h-48 overflow-hidden">
+                  <div className="relative h-38 md:h-auto md:min-h-[13.5rem] overflow-hidden">
                     <Image
                       src={p.img}
                       alt={p.title}
@@ -208,16 +209,16 @@ export default function Home() {
                       height={1024}
                       className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105"
                     />
-                    <div className="absolute inset-0 bg-gradient-to-t from-black/40 to-transparent" />
-                    <div className="absolute bottom-3 left-4 flex items-center gap-2 text-white">
-                      <div className="w-9 h-9 rounded-xl bg-white/20 backdrop-blur flex items-center justify-center">
-                        <Icon className="w-5 h-5" />
-                      </div>
-                      <span className="font-bold text-lg drop-shadow">{p.title}</span>
-                    </div>
+                    <div className="absolute inset-0 bg-gradient-to-t from-primary-2/40 to-transparent" />
                   </div>
-                  <div className="p-6 flex-1 flex flex-col">
-                    <p className="text-sm text-[color:var(--muted)]">{p.desc}</p>
+                  <div className="p-6 md:p-8 flex flex-col justify-center">
+                    <div className="flex items-center gap-2.5">
+                      <div className="w-9 h-9 rounded-xl bg-[color:var(--primary)]/10 text-[color:var(--primary)] flex items-center justify-center">
+                        <Icon className="w-4 h-4" />
+                      </div>
+                      <span className="font-bold text-lg">{p.title}</span>
+                    </div>
+                    <p className="text-sm text-[color:var(--muted)] mt-3.5 leading-relaxed">{p.desc}</p>
                     <span className="mt-4 inline-flex items-center gap-1.5 text-sm font-semibold text-[color:var(--primary)] group-hover:gap-2.5 transition-all">
                       Explore <ArrowRight className="w-4 h-4" />
                     </span>

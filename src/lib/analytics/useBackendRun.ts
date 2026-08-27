@@ -1,6 +1,7 @@
 "use client";
 import { useState } from "react";
 import { runAnalysis, type AnalysisResponse } from "./client";
+import { friendlyAnalysisError } from "./friendlyError";
 
 export interface BackendRunState {
   loading: boolean;
@@ -22,7 +23,7 @@ export function useBackendRun() {
     try {
       setResult(await runAnalysis(analysisKey, payload));
     } catch (e) {
-      setError(e instanceof Error ? e.message : String(e));
+      setError(friendlyAnalysisError(e));
     } finally {
       setLoading(false);
     }

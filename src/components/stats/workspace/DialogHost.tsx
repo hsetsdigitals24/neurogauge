@@ -26,6 +26,7 @@ import { MediationCard } from "../tests/MediationCard";
 import { ModellingCard } from "../tests/ModellingCard";
 import { SemCard } from "../tests/SemCard";
 import { PowerAnalysisCard } from "@/components/workbench/PowerAnalysisCard";
+import { RandomizationCard } from "@/components/workbench/RandomizationCard";
 
 const TITLE: Record<DialogKey, string> = {
   descriptive: "Descriptives",
@@ -53,6 +54,7 @@ const TITLE: Record<DialogKey, string> = {
   modelling: "Statistical modelling (GLM)",
   sem: "Structural equation modelling",
   power: "Sample size & power",
+  randomize: "Randomize participants",
 };
 
 export function DialogHost({ dialogKey }: { dialogKey: DialogKey }) {
@@ -62,6 +64,11 @@ export function DialogHost({ dialogKey }: { dialogKey: DialogKey }) {
 
   const backendConfig = BACKEND_CONFIG[dialogKey];
   const useBackend = wb != null && backendConfig != null;
+  // Self-contained cards run themselves (their own Calculate/Randomize button) and
+  // hold their inputs in local state, so the header must NOT show the "Run & save"
+  // primary action — that implies a run it doesn't perform. They only get a passive
+  // "Save to output" (like the backend cards) to log an already-computed result.
+  const selfContained = dialogKey === "power" || dialogKey === "randomize";
 
   function saveToLog() {
     const node = bodyRef.current;
@@ -80,16 +87,16 @@ export function DialogHost({ dialogKey }: { dialogKey: DialogKey }) {
   const cardProps = { sessions: ws.sessions, catalog: ws.catalog, questions: ws.questions };
 
   return (
-    <div className="flex flex-col h-full">
+    <div className="flex flex-col flex-1 min-h-0">
       <div className="flex items-center justify-between px-4 py-3 border-b border-[color:var(--border)]">
         <h3 className="font-bold">{TITLE[dialogKey]}</h3>
         <div className="flex gap-2">
-          {!useBackend && (
+          {!useBackend && !selfContained && (
             <button onClick={saveToLog} className="btn btn-primary text-xs flex items-center gap-1">
               <Save className="w-3.5 h-3.5" /> Run & save to output
             </button>
           )}
-          {useBackend && (
+          {(useBackend || selfContained) && (
             <button onClick={saveToLog} className="btn btn-ghost text-xs flex items-center gap-1">
               <Save className="w-3.5 h-3.5" /> Save to output
             </button>
@@ -100,7 +107,7 @@ export function DialogHost({ dialogKey }: { dialogKey: DialogKey }) {
           </button>
         </div>
       </div>
-      <div className="flex-1 overflow-y-auto p-4">
+      <div className="flex-1 min-h-0 overflow-y-auto p-4">
         <div ref={bodyRef}>
           {/* In workbench context with a backend config: use Python backend form */}
           {useBackend && (
@@ -135,6 +142,9 @@ export function DialogHost({ dialogKey }: { dialogKey: DialogKey }) {
 
           {/* Power analysis is dataset-free — no backend config, renders everywhere */}
           {dialogKey === "power" && <PowerAnalysisCard />}
+
+          {/* Participant randomization is dataset-free — renders everywhere */}
+          {dialogKey === "randomize" && <RandomizationCard />}
 
         </div>
       </div>

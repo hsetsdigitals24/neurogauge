@@ -3,6 +3,7 @@ import { useState } from "react";
 import { ChevronDown, ChevronRight } from "lucide-react";
 import { NBackTree } from "./NBackTree";
 import { VariableBrowser } from "@/components/stats/workspace/VariableBrowser";
+import { useResizable } from "./useResizable";
 
 interface LeftPanelProps {
   onEdit: (variableId: string) => void;
@@ -11,9 +12,19 @@ interface LeftPanelProps {
 
 export function LeftPanel({ onEdit, onNewTransform }: LeftPanelProps) {
   const [showVars, setShowVars] = useState(true);
+  const { size: width, dragging, onPointerDown } = useResizable({
+    storageKey: "wb:leftWidth",
+    initial: 224, // w-56
+    min: 160,
+    max: 520,
+    axis: "x",
+  });
 
   return (
-    <aside className="flex flex-col border-r border-[color:var(--border)] bg-white overflow-hidden w-56 shrink-0">
+    <aside
+      className="relative flex flex-col border-r border-[color:var(--border)] bg-white overflow-hidden shrink-0"
+      style={{ width }}
+    >
       {/* N-Back test tree */}
       <div className="border-b border-[color:var(--border)] overflow-y-auto" style={{ maxHeight: "50%" }}>
         <NBackTree />
@@ -34,6 +45,15 @@ export function LeftPanel({ onEdit, onNewTransform }: LeftPanelProps) {
           </div>
         )}
       </div>
+
+      {/* Drag handle — right edge */}
+      <div
+        onPointerDown={onPointerDown}
+        title="Drag to resize"
+        className={`absolute top-0 right-0 h-full w-1.5 cursor-col-resize hover:bg-indigo-300/60 transition-colors ${
+          dragging ? "bg-indigo-400/70" : "bg-transparent"
+        }`}
+      />
     </aside>
   );
 }

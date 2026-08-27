@@ -2,6 +2,7 @@
 import { useMemo, useState } from "react";
 import { Loader2, Play } from "lucide-react";
 import type { AnalysisResponse } from "@/lib/analytics/client";
+import { friendlyAnalysisError } from "@/lib/analytics/friendlyError";
 import { BackendResultPanel } from "./BackendResultPanel";
 
 type SolveFor = "n" | "power" | "effect_size";
@@ -83,7 +84,7 @@ export function PowerAnalysisCard() {
       }
       setResult(JSON.parse(text) as AnalysisResponse);
     } catch (e) {
-      setError(e instanceof Error ? e.message : "Power analysis failed");
+      setError(friendlyAnalysisError(e, "Sample size & power couldn't be computed. Please review your inputs and try again."));
       setResult(null);
     } finally {
       setLoading(false);

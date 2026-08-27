@@ -54,11 +54,22 @@ export async function POST(req: Request) {
     alternative: body.alternative ?? "two-sided",
   };
 
-  const res = await fetch(`${upstream}/v1/power`, {
-    method: "POST",
-    headers: { "Content-Type": "application/json", "X-Analytics-Key": secret },
-    body: JSON.stringify(payload),
-  });
+  let res: Response;
+  try {
+    res = await fetch(`${upstream}/v1/power`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json", "X-Analytics-Key": secret },
+      body: JSON.stringify(payload),
+      signal: AbortSignal.timeout(20_000),
+    });
+  } catch (err) {
+    // Transport-level failure (service down / connection dropped / DNS / TLS).
+    const cause = err instanceof Error ? (err.cause ?? err).toString() : String(err);
+    return NextResponse.json(
+      { error: "Could not reach the analytics service", detail: cause, upstream: `${upstream}/v1/power` },
+      { status: 502 },
+    );
+  }
 
   const text = await res.text();
   if (!res.ok) {

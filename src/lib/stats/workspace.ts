@@ -36,7 +36,7 @@ export type DialogKey =
   | "anova2" | "rm-anova" | "omega" | "growth" | "mediation"
   | "mann-whitney" | "wilcoxon" | "kruskal-wallis" | "friedman"
   | "factor" | "irt"
-  | "modelling" | "sem" | "power";
+  | "modelling" | "sem" | "power" | "randomize";
 
 export interface OutputEntry {
   id: string;

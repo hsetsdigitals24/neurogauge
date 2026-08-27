@@ -84,35 +84,39 @@ export function Header({ showBackButton = false, backHref = "/", title }: Header
           </Link>
         )}
         <Link href="/" className="flex items-center gap-2 sm:gap-3 group min-w-0">
-          {/* <div className="w-8 h-8 sm:w-10 sm:h-10 rounded-xl shimmer shadow-lg flex-shrink-0" /> */}
-          <div className="min-w-0">
-           
-            <div className="font-bold text-base sm:text-lg md:text-xl leading-tight gradient-text truncate"> 
-             <Image src="/assets/Asset 4@4x.png" alt="Logo" width={100} height={30} className="h-auto w-auto" />
-            </div>
-            {!title && !user && (
-              <div className="text-xs leading-tight text-[color:var(--muted)] hidden sm:block truncate">
-                Neuroscience Lab
-              </div>
-            )}
-            {!title && user && (
-              <div className="flex items-center gap-1.5 min-w-0">
-                <span className="text-xs leading-tight text-[color:var(--fg)] font-semibold truncate">
-                  {user.name}
-                </span>
-                {user.accountType && (
-                  <span className="hidden sm:inline-flex flex-shrink-0 items-center rounded-full bg-indigo-50 text-indigo-600 px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wide">
-                    {ACCOUNT_TYPE_LABEL[user.accountType]}
-                  </span>
-                )}
-              </div>
-            )}
-            {title && (
-              <div className="text-xs leading-tight text-[color:var(--muted)] truncate">
-                {title}
-              </div>
-            )}
+          {/* Logo */}
+          <div className="font-bold text-base sm:text-lg md:text-xl leading-tight gradient-text flex-shrink-0">
+            <Image src="/assets/Asset 4@4x.png" alt="Logo" width={100} height={30} className="h-auto w-auto" />
           </div>
+
+          {/* Divider — only when there are account details to show beside the logo */}
+          {(user || title) && (
+            <span aria-hidden className="h-8 w-px flex-shrink-0 bg-[color:var(--border)]" />
+          )}
+
+          {/* Account details, side-by-side with the logo */}
+          {!title && user && (
+            <div className="flex flex-col justify-center min-w-0">
+              <span className="text-sm leading-tight text-[color:var(--fg)] font-semibold truncate">
+                {user.name}
+              </span>
+              {user.accountType && (
+                <span className="text-[10px] leading-tight text-[color:var(--muted)] font-medium uppercase tracking-wide truncate">
+                  {ACCOUNT_TYPE_LABEL[user.accountType]}
+                </span>
+              )}
+            </div>
+          )}
+          {!title && !user && (
+            <div className="text-xs leading-tight text-[color:var(--muted)] hidden sm:block truncate">
+              Neuroscience Lab
+            </div>
+          )}
+          {title && (
+            <div className="text-xs leading-tight text-[color:var(--muted)] truncate">
+              {title}
+            </div>
+          )}
         </Link>
       </div>
 

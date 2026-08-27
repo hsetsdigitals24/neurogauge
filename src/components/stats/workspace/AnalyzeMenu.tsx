@@ -50,6 +50,7 @@ const MENU: { group: string; items: { key: DialogKey; label: string }[] }[] = [
   ]},
   { group: "Plan study", items: [
     { key: "power", label: "Sample size & power" },
+    { key: "randomize", label: "Randomize participants" },
   ]},
 ];
 
