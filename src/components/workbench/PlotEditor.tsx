@@ -37,7 +37,7 @@ function isBivariate(t: Trace): boolean {
 }
 
 function typeOptions(t: Trace): string[] {
-  if (isUnivariate(t)) return ["histogram", "box", "violin"];
+  if (isUnivariate(t)) return ["histogram", "box", "violin", "bar"];
   if (isBivariate(t)) return ["scatter", "bar"];
   return [];
 }
@@ -83,6 +83,16 @@ function convertTrace(trace: Trace, toType: string): Trace {
     delete t.boxpoints;
     delete t.nbinsx;
   } else if (toType === "bar") {
+    // Bars need paired x/y. Bivariate traces already have both; a univariate sample
+    // keeps its values on `y` and gets a 1..n index on `x` (one bar per observation).
+    if (!isNumberArray(t.y) && isNumberArray(t.x)) {
+      t.y = t.x;
+      delete t.x;
+    }
+    if (!isNumberArray(t.x)) {
+      const n = Array.isArray(t.y) ? t.y.length : 0;
+      t.x = Array.from({ length: n }, (_, i) => i + 1);
+    }
     delete t.mode;
     delete t.boxpoints;
     delete t.nbinsx;
