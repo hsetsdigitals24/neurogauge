@@ -1,6 +1,5 @@
 "use client";
 import { useState } from "react";
-import Link from "next/link";
 import { Sparkles, Loader2, X, ArrowRight, Plus } from "lucide-react";
 import { useWorkspace } from "@/components/stats/workspace/WorkspaceProvider";
 import type { ColumnSchema } from "@/lib/analytics/dataset";
@@ -14,6 +13,8 @@ interface Props {
   credits?: number | null;
   /** Called after a run consumes a credit so the balance can refresh. */
   onSpent?: () => void;
+  /** Opens the in-page billing popup to buy AI credits. */
+  onBuyCredits?: () => void;
   onClose: () => void;
 }
 
@@ -26,7 +27,7 @@ const CONFIDENCE_STYLE: Record<string, string> = {
 /** Right-hand slide-over: describe a research question, get ranked test
  *  recommendations mapped onto the workbench's analyses. Picking one opens the
  *  matching analysis dialog (pre-filled by the researcher using the shown map). */
-export function AiStatistician({ schema, n, credits, onSpent, onClose }: Props) {
+export function AiStatistician({ schema, n, credits, onSpent, onBuyCredits, onClose }: Props) {
   const ws = useWorkspace();
   const [question, setQuestion] = useState("");
   const [notes, setNotes] = useState("");
@@ -85,9 +86,9 @@ export function AiStatistician({ schema, n, credits, onSpent, onClose }: Props) 
         <div className="mx-4 mt-3 rounded-lg border border-amber-200 bg-amber-50 p-3 text-xs text-amber-800">
           <p className="font-semibold">You&apos;re out of AI credits.</p>
           <p className="mt-0.5">Each recommendation uses one credit. Buy more to keep analysing.</p>
-          <Link href="/dashboard/billing" className="btn btn-primary text-[11px] mt-2 inline-flex items-center gap-1">
+          <button onClick={onBuyCredits} className="btn btn-primary text-[11px] mt-2 inline-flex items-center gap-1">
             <Plus className="w-3 h-3" /> Buy AI credits
-          </Link>
+          </button>
         </div>
       )}
 

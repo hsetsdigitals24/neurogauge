@@ -3,11 +3,13 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { motion } from "framer-motion";
-import { ArrowLeft } from "lucide-react";
+import { ArrowLeft, CreditCard } from "lucide-react";
 import { DEFAULT_CONFIG } from "@/lib/config";
 import { CustomQuestion, Level, SHAPE_LIBRARY, StimulusType, StudyConfig } from "@/lib/types";
 import { generateId } from "@/lib/id";
 import { notify } from "@/lib/toast";
+import { BillingModal } from "@/components/billing/BillingModal";
+import { useProjectCredits } from "@/lib/useProjectCredits";
 
 const TYPES: { v: StimulusType; label: string }[] = [
   { v: "letters", label: "Letters" },
@@ -21,6 +23,8 @@ export default function NBackForm() {
   const [name, setName] = useState("");
   const [cfg, setCfg] = useState<StudyConfig>(DEFAULT_CONFIG);
   const [saving, setSaving] = useState(false);
+  const [showBilling, setShowBilling] = useState(false);
+  const { credits: projectCredits, refresh: refreshCredits } = useProjectCredits();
 
   const backHref = "/dashboard/projects/new";
 
@@ -52,6 +56,13 @@ export default function NBackForm() {
         body: JSON.stringify({ name: name.trim(), config: cfg }),
       });
       const data = await res.json();
+      if (res.status === 402) {
+        // Out of project credits — surface the billing popup so they can buy a
+        // pass without leaving this page.
+        notify.error(data.message ?? "You need a project credit to create this project");
+        setShowBilling(true);
+        return;
+      }
       if (!res.ok) { notify.error(data.message ?? data.error ?? "Failed to create"); return; }
       notify.success("Project created");
       router.push(`/dashboard/projects/${data.id}`);
@@ -79,6 +90,20 @@ export default function NBackForm() {
             Configure your N-back study. You can edit everything later.
           </p>
         </motion.div>
+
+        {/* Not enough project credits — warn up-front so they can top up before filling everything in. */}
+        {projectCredits === 0 && (
+          <div className="mt-6 card p-4 flex items-start gap-3 border border-amber-200 bg-amber-50">
+            <CreditCard className="w-5 h-5 text-amber-600 shrink-0 mt-0.5" />
+            <div className="flex-1 text-sm text-amber-800">
+              <span className="font-semibold">You have no project credits.</span>{" "}
+              Creating a project uses one credit — buy a project pass to continue.
+            </div>
+            <button className="btn btn-primary btn-sm shrink-0" onClick={() => setShowBilling(true)}>
+              Buy a project pass
+            </button>
+          </div>
+        )}
 
         {/* Project name */}
         <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.05 }} className="card p-6 mt-6">
@@ -238,6 +263,13 @@ export default function NBackForm() {
           <Link href={backHref} className="btn btn-ghost">Cancel</Link>
         </div>
       </main>
+
+      <BillingModal
+        open={showBilling}
+        focus="project"
+        message="Creating a project uses one project credit. Buy a project pass below, then create your project."
+        onClose={() => { setShowBilling(false); refreshCredits(); }}
+      />
     </div>
   );
 }

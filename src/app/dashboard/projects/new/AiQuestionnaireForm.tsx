@@ -3,10 +3,12 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { motion } from "framer-motion";
-import { ArrowLeft, Sparkles, Info, Loader2 } from "lucide-react";
+import { ArrowLeft, Sparkles, Info, Loader2, CreditCard } from "lucide-react";
 import QuestionnaireBuilder from "@/components/questionnaire/QuestionnaireBuilder";
 import { blankQuestion, normalizeQuestionKeys } from "@/lib/questionnaire";
 import { notify } from "@/lib/toast";
+import { BillingModal } from "@/components/billing/BillingModal";
+import { useProjectCredits } from "@/lib/useProjectCredits";
 import type { QItem, QuestionnaireConfig } from "@/lib/types";
 
 const QUESTION_TYPES: { v: string; label: string }[] = [
@@ -40,6 +42,8 @@ export default function AiQuestionnaireForm() {
   const [generating, setGenerating] = useState(false);
   const [saving, setSaving] = useState(false);
   const [aiNotice, setAiNotice] = useState<string | null>(null);
+  const [showBilling, setShowBilling] = useState(false);
+  const { credits: projectCredits, refresh: refreshCredits } = useProjectCredits();
 
   function toggleType(v: string) {
     setTypes((t) => (t.includes(v) ? t.filter((x) => x !== v) : [...t, v]));
@@ -104,6 +108,11 @@ export default function AiQuestionnaireForm() {
         body: JSON.stringify({ name: name.trim(), config }),
       });
       const data = await res.json();
+      if (res.status === 402) {
+        notify.error(data.message ?? "You need a project credit to create this questionnaire");
+        setShowBilling(true);
+        return;
+      }
       if (!res.ok) { notify.error(data.message ?? data.error ?? "Failed to create"); return; }
       notify.success("Questionnaire created");
       router.push(`/dashboard/projects/${data.id}`);
@@ -132,6 +141,19 @@ export default function AiQuestionnaireForm() {
             Describe what you want to measure. AI drafts a questionnaire you can review, edit, and share with participants — responses flow straight into the analytics workbench.
           </p>
         </motion.div>
+
+        {projectCredits === 0 && (
+          <div className="mt-6 card p-4 flex items-start gap-3 border border-amber-200 bg-amber-50">
+            <CreditCard className="w-5 h-5 text-amber-600 shrink-0 mt-0.5" />
+            <div className="flex-1 text-sm text-amber-800">
+              <span className="font-semibold">You have no project credits.</span>{" "}
+              Creating a questionnaire uses one credit — buy a project pass to continue.
+            </div>
+            <button className="btn btn-primary btn-sm shrink-0" onClick={() => setShowBilling(true)}>
+              Buy a project pass
+            </button>
+          </div>
+        )}
 
         <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.05 }} className="card p-6 mt-6 space-y-5">
           <div>
@@ -277,6 +299,13 @@ export default function AiQuestionnaireForm() {
           <Link href={backHref} className="btn btn-ghost w-full sm:w-auto text-center">Cancel</Link>
         </div>
       </main>
+
+      <BillingModal
+        open={showBilling}
+        focus="project"
+        message="Creating a questionnaire uses one project credit. Buy a project pass below, then create your questionnaire."
+        onClose={() => { setShowBilling(false); refreshCredits(); }}
+      />
     </div>
   );
 }

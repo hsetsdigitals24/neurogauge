@@ -1,7 +1,6 @@
 "use client";
 import { useState, useRef, useEffect } from "react";
 import { useRouter } from "next/navigation";
-import Link from "next/link";
 import { Download, Upload, ChevronDown, Loader2, Sparkles, Plus } from "lucide-react";
 import { AnalyzeBar } from "@/components/stats/workspace/AnalyzeBar";
 import { SessionFile } from "@/components/stats/workspace/SessionFile";
@@ -17,11 +16,13 @@ interface WorkbenchToolbarProps {
   onTransform: () => void;
   onImport: () => void;
   onAiRecommend: () => void;
+  /** Opens the in-page billing popup to buy credits / upgrade. */
+  onBuyCredits: () => void;
   /** Caller's AI-analysis credit balance (null while loading). */
   aiCredits?: number | null;
 }
 
-export function WorkbenchToolbar({ onTransform, onImport, onAiRecommend, aiCredits }: WorkbenchToolbarProps) {
+export function WorkbenchToolbar({ onTransform, onImport, onAiRecommend, onBuyCredits, aiCredits }: WorkbenchToolbarProps) {
   const ws = useWorkspace();
   const { state, filteredRows, source } = useWorkbench();
   const router = useRouter();
@@ -64,13 +65,13 @@ export function WorkbenchToolbar({ onTransform, onImport, onAiRecommend, aiCredi
           >
             {aiCredits} AI credit{aiCredits === 1 ? "" : "s"}
           </span>
-          <Link
-            href="/dashboard/billing"
+          <button
+            onClick={onBuyCredits}
             className="btn btn-ghost text-[11px] flex items-center gap-0.5 text-indigo-700 hover:bg-indigo-50 px-1.5 py-0.5"
             title="Buy more AI credits"
           >
             <Plus className="w-3 h-3" /> Buy
-          </Link>
+          </button>
         </div>
       )}
 

@@ -71,9 +71,16 @@ export async function POST(req: Request) {
 
       case "invoice.update":
       case "invoice.payment_failed": {
+        // Paystack fires `invoice.update` for invoices that aren't paid yet
+        // (creation, pending, upcoming-renewal notices) as well as for paid
+        // ones. Only ever move a subscription to `past_due` on an explicit
+        // payment failure — a non-paid `invoice.update` must NOT downgrade an
+        // already-active (just-paid) subscription, or the user loses access
+        // right after paying.
         const paid = data.paid === true || data.status === "success";
+        const failed = type === "invoice.payment_failed";
         const subCode: string | undefined = data.subscription?.subscription_code;
-        if (subCode) {
+        if (subCode && (paid || failed)) {
           await db.subscription.updateMany({
             where: { paystackSubscriptionCode: subCode },
             data: {

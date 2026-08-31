@@ -5,7 +5,8 @@ import { DialogKey } from "@/lib/stats";
 import { useWorkspace } from "@/components/stats/workspace/WorkspaceProvider";
 
 const GRAPH_ITEMS: { key: DialogKey; label: string }[] = [
-  { key: "descriptive", label: "Histogram / bar chart" },
+  { key: "descriptive", label: "Histogram" },
+  { key: "descriptive", label: "Bar chart" },
   { key: "correlation", label: "Scatter plot" },
   { key: "normality",   label: "Q-Q plot" },
   { key: "anova",       label: "Box plot by group" },
@@ -36,7 +37,7 @@ export function GraphsMenu() {
         <div className="absolute left-0 top-full mt-1 z-30 bg-white border border-[color:var(--border)] rounded-xl shadow-xl py-2 w-48">
           {GRAPH_ITEMS.map((item) => (
             <button
-              key={item.key}
+              key={item.label}
               onClick={() => {
                 ws.dispatch({ type: "openDialog", key: item.key });
                 setOpen(false);

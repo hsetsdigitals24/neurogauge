@@ -8,7 +8,7 @@ from fastapi import APIRouter, Depends, HTTPException
 from app.deps import require_secret
 from app.schemas.common import AnalysisRequest, AnalysisResponse, Meta, PlotSpec, TableBlock
 from app.core.csv_io import df_to_table
-from app.core.plots import boxplot_spec, mean_ci_bar_spec, pie_spec, radar_spec
+from app.core.plots import boxplot_spec, count_bar_spec, mean_ci_bar_spec, pie_spec, radar_spec
 from app import VERSION
 
 router = APIRouter(tags=["descriptive"], dependencies=[Depends(require_secret)])
@@ -184,6 +184,10 @@ def descriptive(req: AnalysisRequest) -> AnalysisResponse:
             ],
         }
         if values:
+            plots.append(PlotSpec(
+                type="bar",
+                plotly=count_bar_spec(labels, values, title=f"{col} — frequencies", x_label=col),
+            ))
             plots.append(PlotSpec(
                 type="pie",
                 plotly=pie_spec(labels, values, title=f"{col} — frequencies"),

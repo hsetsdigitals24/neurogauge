@@ -454,6 +454,32 @@ def pie_spec(labels: list[str], values: list[float], title: str = "Distribution"
     }
 
 
+def count_bar_spec(
+    labels: list[str],
+    values: list[float],
+    title: str = "Frequencies",
+    x_label: str = "",
+    y_label: str = "Count",
+) -> dict[str, Any]:
+    """Vertical bar chart of category frequencies (companion to pie_spec)."""
+    palette = ["#6366f1", "#ef4444", "#10b981", "#f59e0b", "#8b5cf6", "#06b6d4", "#ec4899", "#84cc16"]
+    return {
+        "data": [{
+            "type": "bar",
+            "x": labels,
+            "y": values,
+            "marker": {"color": [palette[i % len(palette)] for i in range(len(labels))]},
+            "hovertemplate": "%{x}<br>%{y}<extra></extra>",
+        }],
+        "layout": {
+            "title": {"text": title},
+            "xaxis": {"title": {"text": x_label}, "type": "category"},
+            "yaxis": {"title": {"text": y_label}},
+            "margin": {"l": 50, "r": 20, "t": 50, "b": 60},
+        },
+    }
+
+
 def radar_spec(
     categories: list[str],
     series_by_group: dict[str, list[float]],

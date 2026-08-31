@@ -83,15 +83,30 @@ export function Header({ showBackButton = false, backHref = "/", title }: Header
             <ArrowLeft className="w-4 h-4" />
           </Link>
         )}
-        <Link href="/" className="flex items-center gap-2 sm:gap-3 group min-w-0">
+        <Link
+          href="/"
+          className="flex items-center gap-2 sm:gap-3 group min-w-0"
+        >
           {/* Logo */}
           <div className="font-bold text-base sm:text-lg md:text-xl leading-tight gradient-text flex-shrink-0">
-            <Image src="/assets/Asset 4@4x.png" alt="Logo" width={100} height={30} className="h-auto w-auto" />
+            <Image
+              src="/assets/Asset 4@4x.png"
+              alt="Logo"
+              width={100}
+              height={30}
+              className="h-auto w-auto"
+            />
+            <div className="text-xs leading-tight text-[color:var(--muted)] hidden sm:block truncate">
+              Neuroscience Lab
+            </div>
           </div>
 
           {/* Divider — only when there are account details to show beside the logo */}
           {(user || title) && (
-            <span aria-hidden className="h-8 w-px flex-shrink-0 bg-[color:var(--border)]" />
+            <span
+              aria-hidden
+              className="h-8 w-px flex-shrink-0 bg-[color:var(--border)]"
+            />
           )}
 
           {/* Account details, side-by-side with the logo */}
@@ -107,11 +122,11 @@ export function Header({ showBackButton = false, backHref = "/", title }: Header
               )}
             </div>
           )}
-          {!title && !user && (
+          {/* {!title && !user && (
             <div className="text-xs leading-tight text-[color:var(--muted)] hidden sm:block truncate">
               Neuroscience Lab
             </div>
-          )}
+          )} */}
           {title && (
             <div className="text-xs leading-tight text-[color:var(--muted)] truncate">
               {title}
@@ -181,7 +196,11 @@ export function Header({ showBackButton = false, backHref = "/", title }: Header
               aria-expanded={menuOpen}
               className="lg:hidden inline-flex items-center justify-center p-2 -mr-2 text-[color:var(--muted)] hover:text-[color:var(--fg)] transition-colors"
             >
-              {menuOpen ? <X className="w-5 h-5" /> : <Menu className="w-5 h-5" />}
+              {menuOpen ? (
+                <X className="w-5 h-5" />
+              ) : (
+                <Menu className="w-5 h-5" />
+              )}
             </button>
           </>
         ) : !loading ? (
@@ -248,7 +267,10 @@ export function Header({ showBackButton = false, backHref = "/", title }: Header
               <span>Settings</span>
             </Link>
             <button
-              onClick={() => { setMenuOpen(false); logout(); }}
+              onClick={() => {
+                setMenuOpen(false);
+                logout();
+              }}
               className="flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-semibold text-rose-600 transition-colors hover:bg-rose-50 text-left"
             >
               <LogOut className="w-4 h-4 flex-shrink-0" />

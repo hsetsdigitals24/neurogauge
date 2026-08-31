@@ -506,7 +506,7 @@ requires-dist = [
     { name = "scikit-posthocs", specifier = ">=0.9" },
     { name = "scipy", specifier = ">=1.14" },
     { name = "semopy", specifier = ">=2.3" },
-    { name = "statsmodels", specifier = ">=0.14" },
+    { name = "statsmodels", specifier = ">=0.14,<0.15" },
     { name = "uvicorn", extras = ["standard"], specifier = ">=0.32" },
 ]
 

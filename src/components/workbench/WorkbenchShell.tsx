@@ -25,6 +25,7 @@ import { ImportCsvDialog } from "./ImportCsvDialog";
 import { DatasetVariableView } from "./DatasetVariableView";
 import { ComputedColumnDialog } from "./ComputedColumnDialog";
 import { AiStatistician } from "./AiStatistician";
+import { BillingModal } from "@/components/billing/BillingModal";
 import { useAiCredits } from "@/lib/useAiCredits";
 
 interface WorkbenchShellProps {
@@ -62,6 +63,7 @@ export function WorkbenchShell({
   const [showAi, setShowAi] = useState(false);
   const [showTransform, setShowTransform] = useState(false);
   const [showComputed, setShowComputed] = useState(false);
+  const [showBilling, setShowBilling] = useState(false);
   const [editingVarId, setEditingVarId] = useState<string | null>(null);
   const { credits: aiCredits, refresh: refreshAiCredits } = useAiCredits();
 
@@ -134,6 +136,7 @@ export function WorkbenchShell({
             onTransform={() => setShowTransform(true)}
             onImport={() => setShowImport(true)}
             onAiRecommend={() => setShowAi(true)}
+            onBuyCredits={() => setShowBilling(true)}
             aiCredits={aiCredits}
           />
 
@@ -201,6 +204,7 @@ export function WorkbenchShell({
                     n={totalRows}
                     credits={aiCredits}
                     onSpent={refreshAiCredits}
+                    onBuyCredits={() => setShowBilling(true)}
                     onClose={() => setShowAi(false)}
                   />
                 )}
@@ -225,6 +229,11 @@ export function WorkbenchShell({
         {showComputed && (
           <ComputedColumnDialog onClose={() => setShowComputed(false)} />
         )}
+        <BillingModal
+          open={showBilling}
+          focus="ai_credits"
+          onClose={() => { setShowBilling(false); refreshAiCredits(); }}
+        />
       </WorkbenchContext.Provider>
     </WorkspaceProvider>
   );
