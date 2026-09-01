@@ -34,6 +34,46 @@ function formatDate(iso: string): string {
   });
 }
 
+// Build a minimal, single-page PDF (Helvetica) from styled text rows.
+// Rows are [text, fontSize, isBold]; returns a downloadable Blob.
+function buildReceiptPdf(rows: Array<[string, number, boolean]>): Blob {
+  const escape = (s: string) => s.replace(/\\/g, "\\\\").replace(/\(/g, "\\(").replace(/\)/g, "\\)");
+
+  // Content stream: draw each row top-down, advancing the cursor by its size.
+  let y = 800;
+  let content = "BT\n";
+  for (const [text, size, bold] of rows) {
+    y -= size + 8;
+    content += `/${bold ? "F2" : "F1"} ${size} Tf\n1 0 0 1 60 ${y} Tm\n(${escape(text)}) Tj\n`;
+  }
+  content += "ET";
+
+  const objects = [
+    "<< /Type /Catalog /Pages 2 0 R >>",
+    "<< /Type /Pages /Kids [3 0 R] /Count 1 >>",
+    "<< /Type /Page /Parent 2 0 R /MediaBox [0 0 595 842] /Resources << /Font << /F1 5 0 R /F2 6 0 R >> >> /Contents 4 0 R >>",
+    `<< /Length ${content.length} >>\nstream\n${content}\nendstream`,
+    "<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica >>",
+    "<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica-Bold >>",
+  ];
+
+  let pdf = "%PDF-1.4\n";
+  const offsets: number[] = [];
+  objects.forEach((obj, i) => {
+    offsets.push(pdf.length);
+    pdf += `${i + 1} 0 obj\n${obj}\nendobj\n`;
+  });
+
+  const xrefStart = pdf.length;
+  pdf += `xref\n0 ${objects.length + 1}\n0000000000 65535 f \n`;
+  for (const off of offsets) {
+    pdf += `${String(off).padStart(10, "0")} 00000 n \n`;
+  }
+  pdf += `trailer\n<< /Size ${objects.length + 1} /Root 1 0 R >>\nstartxref\n${xrefStart}\n%%EOF`;
+
+  return new Blob([pdf], { type: "application/pdf" });
+}
+
 const STATUS_STYLE: Record<string, { label: string; className: string; icon: typeof CheckCircle2 }> = {
   success: { label: "Paid", className: "bg-emerald-50 text-emerald-700 border-emerald-200", icon: CheckCircle2 },
   failed: { label: "Failed", className: "bg-rose-50 text-rose-700 border-rose-200", icon: XCircle },
@@ -63,27 +103,28 @@ export default function BillingHistoryPage() {
       .finally(() => setLoading(false));
   }, []);
 
-  // Build + download a plain-text receipt for one transaction, client-side.
+  // Build + download a PDF receipt for one transaction, client-side (no deps).
   function downloadReceipt(t: Transaction) {
-    const lines = [
-      "NEUROGAUGE — PAYMENT RECEIPT",
-      "============================",
-      "",
-      `Description:  ${t.description}`,
-      `Reference:    ${t.reference}`,
-      `Date:         ${formatDate(t.createdAt)}`,
-      `Quantity:     ${t.quantity}`,
-      `Amount:       ${formatMoney(t.amount, t.currency)}`,
-      `Status:       ${(STATUS_STYLE[t.status] ?? STATUS_STYLE.pending).label}`,
-      "",
-      "Processed securely by Paystack.",
-      "Thank you for using Neurogauge.",
+    // Each entry: [text, fontSize, isBold]. ASCII-only for the PDF fonts.
+    const rows: Array<[string, number, boolean]> = [
+      ["NEUROGAUGE - PAYMENT RECEIPT", 18, true],
+      ["", 8, false],
+      [`Description:  ${t.description}`, 12, false],
+      [`Reference:    ${t.reference}`, 12, false],
+      [`Date:         ${formatDate(t.createdAt)}`, 12, false],
+      [`Quantity:     ${t.quantity}`, 12, false],
+      [`Amount:       ${formatMoney(t.amount, t.currency).replace(/₦/g, "NGN ")}`, 12, false],
+      [`Status:       ${(STATUS_STYLE[t.status] ?? STATUS_STYLE.pending).label}`, 12, false],
+      ["", 8, false],
+      ["Processed securely by Paystack.", 11, false],
+      ["Thank you for using Neurogauge.", 11, false],
     ];
-    const blob = new Blob([lines.join("\n")], { type: "text/plain" });
+
+    const blob = buildReceiptPdf(rows);
     const url = URL.createObjectURL(blob);
     const a = document.createElement("a");
     a.href = url;
-    a.download = `neurogauge-receipt-${t.reference}.txt`;
+    a.download = `neurogauge-receipt-${t.reference}.pdf`;
     a.click();
     URL.revokeObjectURL(url);
   }

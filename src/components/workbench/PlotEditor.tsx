@@ -21,6 +21,17 @@ function isNumberArray(v: unknown): boolean {
   return Array.isArray(v) && v.length > 0 && typeof v[0] === "number";
 }
 
+// Mean and sample (n-1) standard deviation, ignoring non-finite values.
+function meanSd(values: number[]): { mean: number; sd: number } {
+  const nums = values.filter((v) => Number.isFinite(v));
+  const n = nums.length;
+  if (n === 0) return { mean: 0, sd: 0 };
+  const mean = nums.reduce((a, b) => a + b, 0) / n;
+  if (n < 2) return { mean, sd: 0 };
+  const variance = nums.reduce((a, b) => a + (b - mean) ** 2, 0) / (n - 1);
+  return { mean, sd: Math.sqrt(variance) };
+}
+
 // A trace whose distribution is a single sample (raw points in x or y) can be shown as a
 // histogram, box, or violin interchangeably. Server-side precomputed boxes (q1/median/q3)
 // and pre-binned bars carry no raw points, so they're excluded.
@@ -83,15 +94,20 @@ function convertTrace(trace: Trace, toType: string): Trace {
     delete t.boxpoints;
     delete t.nbinsx;
   } else if (toType === "bar") {
-    // Bars need paired x/y. Bivariate traces already have both; a univariate sample
-    // keeps its values on `y` and gets a 1..n index on `x` (one bar per observation).
-    if (!isNumberArray(t.y) && isNumberArray(t.x)) {
-      t.y = t.x;
-      delete t.x;
-    }
-    if (!isNumberArray(t.x)) {
-      const n = Array.isArray(t.y) ? t.y.length : 0;
-      t.x = Array.from({ length: n }, (_, i) => i + 1);
+    if (["histogram", "box", "violin"].includes(from)) {
+      // A univariate sample collapses to a single summary bar: height = mean, with a
+      // symmetric error bar of one standard deviation (mean ± SD).
+      const sample = (isNumberArray(t.y) ? t.y : isNumberArray(t.x) ? t.x : []) as number[];
+      const { mean, sd } = meanSd(sample);
+      t.x = [t.name ?? "Mean"];
+      t.y = [mean];
+      t.error_y = { type: "data", array: [sd], visible: true };
+    } else {
+      // Bivariate traces already carry paired x/y — keep them as-is.
+      if (!isNumberArray(t.y) && isNumberArray(t.x)) {
+        t.y = t.x;
+        delete t.x;
+      }
     }
     delete t.mode;
     delete t.boxpoints;
