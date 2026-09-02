@@ -41,14 +41,22 @@ function isUnivariate(t: Trace): boolean {
   return isNumberArray(t.y) || isNumberArray(t.x);
 }
 
-// A trace with paired x/y arrays can render as either a scatter or a bar chart.
+// A summary bar produced from a univariate sample (mean height + SD error bar). We stash the
+// raw sample on `_sample` so it can be switched back to a histogram/box/violin losslessly.
+function isSummaryBar(t: Trace): boolean {
+  return String(t.type) === "bar" && Array.isArray(t._sample);
+}
+
+// A trace with paired x/y arrays can render as either a scatter or a bar chart. Summary bars
+// are excluded — they carry a single mean, not paired data (they behave as univariate here).
 function isBivariate(t: Trace): boolean {
   if (!["scatter", "bar"].includes(String(t.type))) return false;
+  if (isSummaryBar(t)) return false;
   return isNumberArray(t.x) && isNumberArray(t.y);
 }
 
 function typeOptions(t: Trace): string[] {
-  if (isUnivariate(t)) return ["histogram", "box", "violin", "bar"];
+  if (isUnivariate(t) || isSummaryBar(t)) return ["histogram", "box", "violin", "bar"];
   if (isBivariate(t)) return ["scatter", "bar"];
   return [];
 }
@@ -73,32 +81,53 @@ function convertTrace(trace: Trace, toType: string): Trace {
   if (from === toType) return t;
   t.type = toType;
 
+  // Recover the raw univariate sample whether it currently lives in x/y (a histogram/box/
+  // violin) or was stashed on `_sample` when the trace was collapsed into a summary bar.
+  const univariateSample = (): number[] =>
+    Array.isArray(t._sample)
+      ? (t._sample as number[])
+      : isNumberArray(t.y)
+        ? (t.y as number[])
+        : isNumberArray(t.x)
+          ? (t.x as number[])
+          : [];
+
   if (["box", "violin"].includes(toType)) {
     // Distribution shown vertically → values must live in `y`.
-    if (!isNumberArray(t.y) && isNumberArray(t.x)) {
-      t.y = t.x;
+    const sample = univariateSample();
+    if (sample.length) {
+      t.y = sample;
       delete t.x;
     }
     delete t.mode;
     delete t.nbinsx;
+    delete t.error_y;
+    delete t._sample;
   } else if (toType === "histogram") {
     // Histogram bins along `x`.
-    if (!isNumberArray(t.x) && isNumberArray(t.y)) {
-      t.x = t.y;
+    const sample = univariateSample();
+    if (sample.length) {
+      t.x = sample;
       delete t.y;
     }
     delete t.mode;
     delete t.boxpoints;
+    delete t.error_y;
+    delete t._sample;
   } else if (toType === "scatter") {
     t.mode = t.mode ?? "markers";
     delete t.boxpoints;
     delete t.nbinsx;
+    delete t.error_y;
+    delete t._sample;
   } else if (toType === "bar") {
     if (["histogram", "box", "violin"].includes(from)) {
       // A univariate sample collapses to a single summary bar: height = mean, with a
-      // symmetric error bar of one standard deviation (mean ± SD).
-      const sample = (isNumberArray(t.y) ? t.y : isNumberArray(t.x) ? t.x : []) as number[];
+      // symmetric error bar of one standard deviation (mean ± SD). Keep the raw points on
+      // `_sample` so switching back to a histogram/box/violin restores the full sample.
+      const sample = univariateSample();
       const { mean, sd } = meanSd(sample);
+      t._sample = sample;
       t.x = [t.name ?? "Mean"];
       t.y = [mean];
       t.error_y = { type: "data", array: [sd], visible: true };
