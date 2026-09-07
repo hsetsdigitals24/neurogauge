@@ -23,6 +23,7 @@ export function ProjectInstitutions({ projectId, isOwner }: { projectId: string;
   const [sites, setSites] = useState<SiteLite[]>([]);
   const [myInstitutions, setMyInstitutions] = useState<MyInstitution[]>([]);
   const [loading, setLoading] = useState(true);
+  const [selected, setSelected] = useState<Set<string>>(new Set());
   const [code, setCode] = useState("");
   const [siteId, setSiteId] = useState("");
   const [linking, setLinking] = useState(false);
@@ -52,23 +53,47 @@ export function ProjectInstitutions({ projectId, isOwner }: { projectId: string;
 
   async function link(e: React.FormEvent) {
     e.preventDefault();
-    if (!code.trim()) return;
+    // Codes to link: every institution ticked in the dropdown, plus a manually
+    // typed code (for a partner institution the caller isn't a member of).
+    const codes = Array.from(new Set([...selected, code.trim()].filter(Boolean)));
+    if (codes.length === 0) return;
     setLinking(true);
     try {
-      const res = await fetch(`/api/projects/${projectId}/institutions`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ code, siteId: siteId || null }),
-      });
-      const d = await res.json();
-      if (!res.ok) {
-        notify.error(d.error ?? "Could not link institution");
-        return;
+      const linked: LinkedInstitution[] = [];
+      const failures: string[] = [];
+      // Link one at a time so a single bad code (already linked, unknown) never
+      // blocks the rest; the API takes one institution per POST.
+      for (const c of codes) {
+        try {
+          const res = await fetch(`/api/projects/${projectId}/institutions`, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ code: c, siteId: siteId || null }),
+          });
+          const d = await res.json().catch(() => ({}));
+          if (!res.ok) {
+            failures.push(`${c}: ${d.error ?? "could not link"}`);
+            continue;
+          }
+          linked.push(d.link);
+        } catch {
+          failures.push(`${c}: request failed`);
+        }
       }
-      notify.success(`Linked ${d.link.name}`);
-      setCode("");
-      setSiteId("");
-      setLinks((l) => [...l, d.link]);
+      if (linked.length > 0) {
+        setLinks((l) => [...l, ...linked]);
+        notify.success(
+          linked.length === 1
+            ? `Linked ${linked[0].name}`
+            : `Linked ${linked.length} institutions`
+        );
+        setSelected(new Set());
+        setCode("");
+        setSiteId("");
+      }
+      if (failures.length > 0) {
+        notify.error(failures.join("; "));
+      }
     } finally {
       setLinking(false);
     }
@@ -100,28 +125,49 @@ export function ProjectInstitutions({ projectId, isOwner }: { projectId: string;
         <Building2 className="w-5 h-5 text-[color:var(--primary)]" /> Collaborating institutions
       </h2>
       <p className="text-sm text-[color:var(--muted)] mb-4">
-        Link a partner institution by its code and assign the site it collects at. Their members
-        sign in and see this project scoped to that site&apos;s data only.
+        Select one or more of your institutions (or link a partner by its code) and assign the site
+        they collect at. Their members sign in and see this project scoped to that site&apos;s data
+        only.
       </p>
 
-      <form onSubmit={link} className="flex gap-2 flex-wrap items-end mb-4">
-        {available.length > 0 && (
-          <div className="min-w-[180px]">
-            <label className="text-xs text-[color:var(--muted)]">Your institutions</label>
-            <select
-              className="input mt-1 w-full"
-              value={available.some((i) => i.code === code) ? code : ""}
-              onChange={(e) => setCode(e.target.value)}
-            >
-              <option value="">— pick one —</option>
-              {available.map((i) => (
-                <option key={i.id} value={i.code}>
+      {/* Multi-select list of the caller's own institutions — tick any number
+          to link them all at once (each gets the site chosen below). */}
+      {available.length > 0 && (
+        <div className="mb-3">
+          <label className="text-xs text-[color:var(--muted)]">
+            Your institutions {selected.size > 0 && `(${selected.size} selected)`}
+          </label>
+          <div className="mt-1 flex flex-wrap gap-2">
+            {available.map((i) => {
+              const on = selected.has(i.code);
+              return (
+                <button
+                  key={i.id}
+                  type="button"
+                  onClick={() =>
+                    setSelected((prev) => {
+                      const next = new Set(prev);
+                      if (next.has(i.code)) next.delete(i.code);
+                      else next.add(i.code);
+                      return next;
+                    })
+                  }
+                  className={`px-3 py-1.5 rounded-full text-sm border transition ${
+                    on
+                      ? "bg-[color:var(--primary)] text-white border-[color:var(--primary)]"
+                      : "bg-white text-[color:var(--fg)] border-[color:var(--border)] hover:border-[color:var(--primary)]"
+                  }`}
+                >
+                  {on ? "✓ " : ""}
                   {i.name}
-                </option>
-              ))}
-            </select>
+                </button>
+              );
+            })}
           </div>
-        )}
+        </div>
+      )}
+
+      <form onSubmit={link} className="flex gap-2 flex-wrap items-end mb-4">
         <div className="flex-1 min-w-[160px]">
           <label className="text-xs text-[color:var(--muted)]">
             {available.length > 0 ? "or institution code" : "Institution code"}
@@ -148,8 +194,16 @@ export function ProjectInstitutions({ projectId, isOwner }: { projectId: string;
             ))}
           </select>
         </div>
-        <button className="btn btn-primary shrink-0 inline-flex items-center gap-1.5" disabled={linking || !code.trim()}>
-          <Plus className="w-4 h-4" /> {linking ? "Linking…" : "Link"}
+        <button
+          className="btn btn-primary shrink-0 inline-flex items-center gap-1.5"
+          disabled={linking || (selected.size === 0 && !code.trim())}
+        >
+          <Plus className="w-4 h-4" />{" "}
+          {linking
+            ? "Linking…"
+            : selected.size > 1
+              ? `Link ${selected.size}`
+              : "Link"}
         </button>
       </form>
 
