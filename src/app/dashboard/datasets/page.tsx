@@ -7,6 +7,7 @@ import { Database, Upload, Trash2, ChevronRight, ArrowLeft, Loader2, Table2, X }
 import { uploadCsvAsDataset, uploadSheetAsDataset } from "@/lib/analytics/uploadDataset";
 import { isSpreadsheetFile, readWorkbook } from "@/lib/analytics/spreadsheetParser";
 import { notify } from "@/lib/toast";
+import { confirmDialog } from "@/lib/confirm";
 
 const UPLOAD_ACCEPT =
   ".csv,.xlsx,.xls,.xlsm,.ods,text/csv,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,application/vnd.ms-excel";
@@ -93,7 +94,7 @@ export default function DatasetsPage() {
   }
 
   async function remove(id: string) {
-    if (!confirm("Delete this dataset? This cannot be undone.")) return;
+    if (!(await confirmDialog({ title: "Delete dataset", message: "Delete this dataset? This cannot be undone.", confirmLabel: "Delete" }))) return;
     const res = await fetch(`/api/datasets/${id}`, { method: "DELETE" });
     if (res.ok) {
       setDatasets((ds) => ds.filter((d) => d.id !== id));

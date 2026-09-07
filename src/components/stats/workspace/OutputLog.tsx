@@ -3,6 +3,7 @@ import { useWorkspace } from "./WorkspaceProvider";
 import { OutputEntry } from "@/lib/stats";
 import { Pin, PinOff, Trash2, FileText, Download } from "lucide-react";
 import { downloadBlob } from "@/lib/analytics/download";
+import { confirmDialog } from "@/lib/confirm";
 
 function downloadAllOutputs(entries: OutputEntry[], projectId: string) {
   const date = new Date().toLocaleString();
@@ -71,7 +72,7 @@ export function OutputLog({ onExportReport }: { onExportReport: () => void }) {
           )}
           {entries.length > 0 && (
             <button className="btn btn-ghost text-xs text-[color:var(--danger)]"
-              onClick={() => { if (confirm("Clear all output?")) ws.dispatch({ type: "clearOutputs" }); }}>
+              onClick={async () => { if (await confirmDialog({ title: "Clear output", message: "Clear all output?", confirmLabel: "Clear" })) ws.dispatch({ type: "clearOutputs" }); }}>
               Clear
             </button>
           )}

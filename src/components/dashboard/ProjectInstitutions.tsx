@@ -2,6 +2,7 @@
 import { useEffect, useState, useCallback } from "react";
 import { Building2, Plus, X, MapPin } from "lucide-react";
 import { notify } from "@/lib/toast";
+import { confirmDialog } from "@/lib/confirm";
 
 type SiteLite = { id: string; name: string; code: string };
 type MyInstitution = { id: string; name: string; code: string; role: string };
@@ -100,7 +101,7 @@ export function ProjectInstitutions({ projectId, isOwner }: { projectId: string;
   }
 
   async function unlink(linkId: string, name: string) {
-    if (!confirm(`Unlink ${name} from this project?`)) return;
+    if (!(await confirmDialog({ title: "Unlink institution", message: `Unlink ${name} from this project?`, confirmLabel: "Unlink" }))) return;
     const res = await fetch(`/api/projects/${projectId}/institutions?linkId=${linkId}`, {
       method: "DELETE",
     });

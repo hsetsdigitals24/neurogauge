@@ -4,6 +4,7 @@ import { useWorkspace } from "./WorkspaceProvider";
 import { toFile, downloadJson, SessionFileV1, clearLocal } from "@/lib/stats";
 import { Save, Upload, Trash2 } from "lucide-react";
 import { notify } from "@/lib/toast";
+import { confirmDialog } from "@/lib/confirm";
 
 export function SessionFile() {
   const ws = useWorkspace();
@@ -43,8 +44,8 @@ export function SessionFile() {
     reader.readAsText(file);
   }
 
-  function reset() {
-    if (!confirm("Reset workspace? Derived variables, filters, and output will be cleared.")) return;
+  async function reset() {
+    if (!(await confirmDialog({ title: "Reset workspace", message: "Reset workspace? Derived variables, filters, and output will be cleared.", confirmLabel: "Reset" }))) return;
     clearLocal(ws.state.projectId);
     ws.dispatch({ type: "reset" });
   }

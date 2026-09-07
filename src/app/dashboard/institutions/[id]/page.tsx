@@ -16,6 +16,7 @@ import {
   LogOut,
 } from "lucide-react";
 import { notify } from "@/lib/toast";
+import { confirmDialog } from "@/lib/confirm";
 
 type Role = "owner" | "admin" | "member";
 
@@ -119,7 +120,14 @@ export default function InstitutionDashboardPage() {
   }
 
   async function removeMember(memberId: string, self: boolean) {
-    if (!confirm(self ? "Leave this institution?" : "Remove this member?")) return;
+    if (
+      !(await confirmDialog(
+        self
+          ? { title: "Leave institution", message: "Leave this institution?", confirmLabel: "Leave" }
+          : { title: "Remove member", message: "Remove this member?", confirmLabel: "Remove" }
+      ))
+    )
+      return;
     const res = await fetch(`/api/institutions/${id}/members?memberId=${memberId}`, {
       method: "DELETE",
     });
@@ -138,7 +146,7 @@ export default function InstitutionDashboardPage() {
   }
 
   async function deleteInstitution() {
-    if (!confirm("Delete this institution? This cannot be undone.")) return;
+    if (!(await confirmDialog({ title: "Delete institution", message: "Delete this institution? This cannot be undone.", confirmLabel: "Delete" }))) return;
     const res = await fetch(`/api/institutions/${id}`, { method: "DELETE" });
     const d = await res.json().catch(() => ({}));
     if (!res.ok) {

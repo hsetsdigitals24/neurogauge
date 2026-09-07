@@ -3,6 +3,7 @@ import "./globals.css";
 import { Header } from "@/components/Header";
 import { Footer } from "@/components/Footer";
 import { AppToaster } from "@/components/AppToaster";
+import { ConfirmHost } from "@/lib/confirm";
 import { ChunkGuard } from "@/components/ChunkGuard";
 
 export const metadata: Metadata = {
@@ -33,6 +34,7 @@ export default function RootLayout({ children }: Readonly<{ children: React.Reac
         {children}
         <Footer />
         <AppToaster />
+        <ConfirmHost />
         <ChunkGuard />
       </body>
     </html>

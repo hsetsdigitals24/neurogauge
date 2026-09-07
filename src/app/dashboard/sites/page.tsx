@@ -4,6 +4,7 @@ import Link from "next/link";
 import { motion } from "framer-motion";
 import { ArrowLeft, MapPin, Plus, Trash2, Users, ChevronRight } from "lucide-react";
 import { notify } from "@/lib/toast";
+import { confirmDialog } from "@/lib/confirm";
 
 interface Site {
   id: string;
@@ -55,7 +56,7 @@ export default function SitesPage() {
   }
 
   async function remove(site: Site) {
-    if (!confirm(`Delete site "${site.name}"? Its sessions are kept but become unassigned.`)) return;
+    if (!(await confirmDialog({ title: "Delete site", message: `Delete site "${site.name}"? Its sessions are kept but become unassigned.`, confirmLabel: "Delete" }))) return;
     const res = await fetch(`/api/sites/${site.id}`, { method: "DELETE" });
     if (!res.ok) { notify.error("Failed to delete"); return; }
     notify.success("Site deleted");

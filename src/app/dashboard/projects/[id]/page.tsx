@@ -13,6 +13,7 @@ import { CustomQuestion, Level, SHAPE_LIBRARY, StimulusType, StudyConfig, QItem,
 import { summarize } from "@/lib/scoring";
 import { generateId } from "@/lib/id";
 import { notify } from "@/lib/toast";
+import { confirmDialog } from "@/lib/confirm";
 import QuestionnaireBuilder from "@/components/questionnaire/QuestionnaireBuilder";
 import { normalizeQuestionKeys } from "@/lib/questionnaire";
 import { ProjectInstitutions } from "@/components/dashboard/ProjectInstitutions";
@@ -144,7 +145,7 @@ export default function ProjectDetailPage() {
   }
 
   async function deleteProject() {
-    if (!confirm("Delete this project and all its data? This cannot be undone.")) return;
+    if (!(await confirmDialog({ title: "Delete project", message: "Delete this project and all its data? This cannot be undone.", confirmLabel: "Delete" }))) return;
     const res = await fetch(`/api/projects/${id}`, { method: "DELETE" });
     if (!res.ok) {
       const data = await res.json().catch(() => ({}));
@@ -191,7 +192,7 @@ export default function ProjectDetailPage() {
   }
 
   async function cancelInvite(inviteId: string, email: string) {
-    if (!confirm(`Cancel invite to ${email}?`)) return;
+    if (!(await confirmDialog({ title: "Cancel invitation", message: `Cancel invite to ${email}?`, confirmLabel: "Cancel invite", cancelLabel: "Keep" }))) return;
     setCancelingInviteId(inviteId);
     const res = await fetch(`/api/projects/${id}/invite?inviteId=${encodeURIComponent(inviteId)}`, {
       method: "DELETE",

@@ -4,6 +4,7 @@ import { ArrowUp, ArrowDown, ArrowUpDown, Columns3, ChevronLeft, ChevronRight, P
 import { useWorkbench } from "@/contexts/WorkbenchContext";
 import type { ColumnSchema, ColumnType } from "@/lib/analytics/dataset";
 import { sanitiseColumnKey, uniqueKey } from "@/lib/analytics/csvIngest";
+import { confirmDialog } from "@/lib/confirm";
 
 const STIM_COLORS: Record<string, string> = {
   "letters":   "border-l-2 border-l-cyan-400",
@@ -285,9 +286,9 @@ export function DataGrid() {
                         <button
                           className="opacity-0 group-hover:opacity-100 text-[color:var(--muted)] hover:text-red-600 transition-opacity"
                           title="Delete column"
-                          onClick={(e) => {
+                          onClick={async (e) => {
                             e.stopPropagation();
-                            if (confirm(`Delete column "${state.schema[col]?.label ?? col}"? Its values are removed from every row.`)) {
+                            if (await confirmDialog({ title: "Delete column", message: `Delete column "${state.schema[col]?.label ?? col}"? Its values are removed from every row.`, confirmLabel: "Delete" })) {
                               dispatch({ type: "deleteColumn", col });
                             }
                           }}
