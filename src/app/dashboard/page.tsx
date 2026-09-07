@@ -6,6 +6,7 @@ import { Plus, Users, FolderOpen, MapPin, Briefcase, GraduationCap, Building2 } 
 import { ProjectCard, type ProjectCardData } from "@/components/dashboard/ProjectCard";
 import { PlanBadge, type Entitlements } from "@/components/dashboard/PlanBadge";
 import { SupervisorSummary } from "@/components/dashboard/SupervisorSummary";
+import { PendingInvites } from "@/components/dashboard/PendingInvites";
 
 type AccountType = "student" | "institution" | "research_group";
 
@@ -99,6 +100,9 @@ export default function DashboardPage() {
             </Link>
           </div>
         )}
+
+        {/* Invitations addressed to this user's email (accept without the email link) */}
+        {!loading && <PendingInvites />}
 
         {/* Owned projects */}
         {!loading && (

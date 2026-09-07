@@ -158,6 +158,7 @@ npm run db:studio       # Open Prisma Studio
 - `/api/sessions` - Global session endpoints
 - `/api/results` - Results management
 - `/api/public/[shareToken]` - Public project access
+- `/api/invites` - GET (auth'd): pending invitations (project-collaborator + institution) addressed to the caller's email, so they're discoverable on the dashboard (`PendingInvites` component) without the emailed link. Matches `inviteeEmail` case-insensitively against the signed-in email
 - `/api/invites/[token]` - Invite token handling
 - `/api/export` - Data export
 - `/api/analytics/[...path]` - Auth'd proxy to the Python analytics service. Accepts `{projectId | datasetId, variables, options, includeTrials?}`, loads rows **server-side**, projects them to only the referenced columns (keeps payloads small for the VPS), caches in `AnalysisResult`
