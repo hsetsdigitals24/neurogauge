@@ -4,6 +4,7 @@ import { Building2, Plus, X, MapPin } from "lucide-react";
 import { notify } from "@/lib/toast";
 
 type SiteLite = { id: string; name: string; code: string };
+type MyInstitution = { id: string; name: string; code: string; role: string };
 
 interface LinkedInstitution {
   linkId: string;
@@ -20,6 +21,7 @@ interface LinkedInstitution {
 export function ProjectInstitutions({ projectId, isOwner }: { projectId: string; isOwner: boolean }) {
   const [links, setLinks] = useState<LinkedInstitution[]>([]);
   const [sites, setSites] = useState<SiteLite[]>([]);
+  const [myInstitutions, setMyInstitutions] = useState<MyInstitution[]>([]);
   const [loading, setLoading] = useState(true);
   const [code, setCode] = useState("");
   const [siteId, setSiteId] = useState("");
@@ -27,14 +29,17 @@ export function ProjectInstitutions({ projectId, isOwner }: { projectId: string;
 
   const load = useCallback(async () => {
     try {
-      const [instRes, siteRes] = await Promise.all([
+      const [instRes, siteRes, myRes] = await Promise.all([
         fetch(`/api/projects/${projectId}/institutions`),
         fetch(`/api/sites`),
+        fetch(`/api/institutions`),
       ]);
       const instData = instRes.ok ? await instRes.json() : { institutions: [] };
       const siteData = siteRes.ok ? await siteRes.json() : { sites: [] };
+      const myData = myRes.ok ? await myRes.json() : { institutions: [] };
       setLinks(instData.institutions ?? []);
       setSites(siteData.sites ?? []);
+      setMyInstitutions(myData.institutions ?? []);
     } finally {
       setLoading(false);
     }
@@ -85,6 +90,10 @@ export function ProjectInstitutions({ projectId, isOwner }: { projectId: string;
 
   if (!isOwner) return null;
 
+  // Institutions the caller belongs to that aren't linked to this project yet.
+  const linkedCodes = new Set(links.map((l) => l.code));
+  const available = myInstitutions.filter((i) => !linkedCodes.has(i.code));
+
   return (
     <div className="card p-6">
       <h2 className="font-bold text-lg mb-1 flex items-center gap-2">
@@ -96,8 +105,27 @@ export function ProjectInstitutions({ projectId, isOwner }: { projectId: string;
       </p>
 
       <form onSubmit={link} className="flex gap-2 flex-wrap items-end mb-4">
+        {available.length > 0 && (
+          <div className="min-w-[180px]">
+            <label className="text-xs text-[color:var(--muted)]">Your institutions</label>
+            <select
+              className="input mt-1 w-full"
+              value={available.some((i) => i.code === code) ? code : ""}
+              onChange={(e) => setCode(e.target.value)}
+            >
+              <option value="">— pick one —</option>
+              {available.map((i) => (
+                <option key={i.id} value={i.code}>
+                  {i.name}
+                </option>
+              ))}
+            </select>
+          </div>
+        )}
         <div className="flex-1 min-w-[160px]">
-          <label className="text-xs text-[color:var(--muted)]">Institution code</label>
+          <label className="text-xs text-[color:var(--muted)]">
+            {available.length > 0 ? "or institution code" : "Institution code"}
+          </label>
           <input
             className="input mt-1 w-full"
             placeholder="e.g. lagos-teaching-hospital"
