@@ -15,6 +15,7 @@ import { generateId } from "@/lib/id";
 import { notify } from "@/lib/toast";
 import QuestionnaireBuilder from "@/components/questionnaire/QuestionnaireBuilder";
 import { normalizeQuestionKeys } from "@/lib/questionnaire";
+import { ProjectInstitutions } from "@/components/dashboard/ProjectInstitutions";
 
 const TYPES: { v: StimulusType; label: string }[] = [
   { v: "letters", label: "Letters" },
@@ -683,6 +684,9 @@ export default function ProjectDetailPage() {
                     )}
                   </div>
                 )}
+
+                {/* Collaborating institutions (multicenter) */}
+                <ProjectInstitutions projectId={id} isOwner={isOwner} />
 
                 {/* Current collaborators */}
                 <div className="card p-6">

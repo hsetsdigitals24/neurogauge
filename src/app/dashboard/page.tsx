@@ -2,7 +2,7 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import { motion } from "framer-motion";
-import { Plus, Users, FolderOpen, MapPin, Briefcase, GraduationCap } from "lucide-react";
+import { Plus, Users, FolderOpen, MapPin, Briefcase, GraduationCap, Building2 } from "lucide-react";
 import { ProjectCard, type ProjectCardData } from "@/components/dashboard/ProjectCard";
 import { PlanBadge, type Entitlements } from "@/components/dashboard/PlanBadge";
 import { SupervisorSummary } from "@/components/dashboard/SupervisorSummary";
@@ -88,6 +88,9 @@ export default function DashboardPage() {
                 <MapPin className="w-4 h-4" /> Sites
               </Link>
             )}
+            <Link href="/dashboard/institutions" className="btn btn-ghost inline-flex items-center gap-1.5 border border-[color:var(--border)]">
+              <Building2 className="w-4 h-4" /> Institutions
+            </Link>
             <Link href="/dashboard/consulting" className="btn btn-ghost inline-flex items-center gap-1.5 border border-[color:var(--border)]">
               <Briefcase className="w-4 h-4" /> Consulting
             </Link>

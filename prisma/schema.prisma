@@ -32,6 +32,8 @@ model User {
   enrollments          Enrollment[]
   certificates         Certificate[]
   authoredCourses      Course[]              @relation("CourseAuthor")
+  institutionMemberships InstitutionMember[]
+  institutionInvitesSent InstitutionInvite[] @relation("InstitutionInvitedBy")
 }
 
 // The kind of account holder, chosen at signup. Drives the per-type subscription
@@ -109,6 +111,7 @@ model Site {
 
   user     User          @relation(fields: [userId], references: [id], onDelete: Cascade)
   sessions TestSession[]
+  projectLinks ProjectInstitution[]
 
   @@unique([userId, code])
   @@index([userId])
@@ -142,6 +145,7 @@ model Project {
   sessions      TestSession[]
   analysisResults AnalysisResult[]
   datasets      Dataset[]
+  institutionLinks ProjectInstitution[]
 
   @@index([ownerId])
 }
@@ -208,6 +212,81 @@ model CollaboratorInvite {
 
   project    Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
   invitedBy  User    @relation("InvitedBy", fields: [invitedById], references: [id], onDelete: Cascade)
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Collaborating institutions (multicenter studies). An Institution is a first-class
+// org with its own member logins. A project lead links one or more institutions to
+// a project (ProjectInstitution) and assigns each the Site (collection centre) it
+// runs. Institution members sign in and see the projects their institution co-works
+// on, scoped to *their own site's* data only.
+// ─────────────────────────────────────────────────────────────────────────────
+enum InstitutionRole {
+  owner  // created the institution; can delete it + manage members
+  admin  // can manage members
+  member // can view the institution dashboard
+}
+
+model Institution {
+  id        String   @id @default(cuid())
+  name      String
+  code      String   @unique // short slug used to link the institution to a project
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  members      InstitutionMember[]
+  invites      InstitutionInvite[]
+  projectLinks ProjectInstitution[]
+}
+
+model InstitutionMember {
+  id            String          @id @default(cuid())
+  institutionId String
+  userId        String
+  role          InstitutionRole @default(member)
+  createdAt     DateTime        @default(now())
+
+  institution Institution @relation(fields: [institutionId], references: [id], onDelete: Cascade)
+  user        User        @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([institutionId, userId])
+  @@index([userId])
+  @@index([institutionId])
+}
+
+model InstitutionInvite {
+  id            String          @id @default(cuid())
+  institutionId String
+  inviteeEmail  String
+  role          InstitutionRole @default(member)
+  token         String          @unique @default(cuid())
+  invitedById   String
+  accepted      Boolean         @default(false)
+  createdAt     DateTime        @default(now())
+
+  institution Institution @relation(fields: [institutionId], references: [id], onDelete: Cascade)
+  invitedBy   User        @relation("InstitutionInvitedBy", fields: [invitedById], references: [id], onDelete: Cascade)
+
+  @@index([institutionId])
+}
+
+// Links an institution to a project as a collaborating centre. `siteId` is the
+// collection site (owned by the project lead) whose data the institution may see.
+model ProjectInstitution {
+  id            String   @id @default(cuid())
+  projectId     String
+  institutionId String
+  siteId        String? // the centre this institution collects at (own-site data scope)
+  createdAt     DateTime @default(now())
+
+  project     Project     @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  institution Institution @relation(fields: [institutionId], references: [id], onDelete: Cascade)
+  site        Site?       @relation(fields: [siteId], references: [id], onDelete: SetNull)
+
+  @@unique([projectId, institutionId])
+  @@index([institutionId])
+  @@index([siteId])
+  @@index([projectId])
 }
 
 model TestSession {

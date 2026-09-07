@@ -55,3 +55,7 @@ __pycache__/
 /test-results/
 /playwright-report/
 /blob-report/
+
+ANALYTICS_BUILD_PLAN.md
+CLAUDE.md
+AGENTS.md
