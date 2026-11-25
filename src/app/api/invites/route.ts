@@ -42,6 +42,8 @@ export async function GET() {
         token: i.token,
         projectName: i.project?.name ?? "a project",
         invitedBy: i.invitedBy?.name ?? i.invitedBy?.email ?? "",
+        invitedByEmail: i.invitedBy?.email ?? "",
+        inviteeEmail: i.inviteeEmail,
         createdAt: i.createdAt,
       })
     ),
@@ -52,6 +54,8 @@ export async function GET() {
         institutionName: i.institution?.name ?? "an institution",
         role: i.role,
         invitedBy: i.invitedBy?.name ?? i.invitedBy?.email ?? "",
+        invitedByEmail: i.invitedBy?.email ?? "",
+        inviteeEmail: i.inviteeEmail,
         createdAt: i.createdAt,
       })
     ),

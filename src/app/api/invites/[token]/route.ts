@@ -37,6 +37,30 @@ export async function POST(_req: Request, ctx: Ctx) {
   return NextResponse.json({ ok: true, projectId: invite.projectId });
 }
 
+// DELETE /api/invites/[token] — decline (reject) the invite. Only the invited
+// user (email match) can decline; removes the pending invitation.
+export async function DELETE(_req: Request, ctx: Ctx) {
+  const session = await getSessionUser();
+  if (!session) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+
+  const { token } = await ctx.params;
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const db = prisma as any;
+
+  const invite = await db.collaboratorInvite.findUnique({ where: { token } });
+  if (!invite) return NextResponse.json({ error: "Invite not found" }, { status: 404 });
+  if (invite.accepted) return NextResponse.json({ error: "Invite already accepted" }, { status: 409 });
+  if (invite.inviteeEmail.toLowerCase() !== session.email.toLowerCase()) {
+    return NextResponse.json(
+      { error: "This invite was sent to a different email address" },
+      { status: 403 }
+    );
+  }
+
+  await db.collaboratorInvite.delete({ where: { token } });
+  return NextResponse.json({ ok: true });
+}
+
 export async function GET(_req: Request, ctx: Ctx) {
   const { token } = await ctx.params;
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
